@@ -248,6 +248,13 @@ struct String {
     List<Char> data;
 };
 
+struct StringView {
+    const String::Char* data;
+    size_t count;
+};
+
+StringView operator ""_sv(const char*, size_t);
+
 #define COMT_SET_GROWTH_FACTOR COMT_TABLE_GROWTH_FACTOR
 
 template <typename T>
@@ -618,6 +625,13 @@ String String::format(Allocator* a, const char* fmt, ...) {
     buf.data.count = buf_size;
 
     return buf;
+}
+
+// STRING VIEW IMPLEMENTATION
+StringView operator ""_sv(const char* cstr, size_t len) {
+    static_assert(sizeof(String::Char) == sizeof(char));
+
+    return StringView{(const String::Char*)cstr, len};
 }
 
 // SET IMPLEMENTATION

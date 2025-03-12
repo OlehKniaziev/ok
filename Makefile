@@ -1,5 +1,5 @@
 SMOKE_TEST = tests/smoke.cpp
-TEST_FILES = tests/arena.test.o
+TEST_FILES = tests/arena.test.o tests/string-view.test.o
 
 CXXFLAGS += -Wall -Wextra -Werror -pedantic
 
@@ -11,9 +11,9 @@ CXXFLAGS += -Wall -Wextra -Werror -pedantic
 	@ ./$@
 	@ rm $@
 
-test: $(SMOKE_TEST) $(TEST_FILES)
+test: smoke-test $(TEST_FILES)
 	@ echo All tests passed.
 
-smoke-test: tests/smoke.cpp compartment.hpp
+smoke-test: $(SMOKE_TEST) compartment.hpp
 	$(CXX) $(CXXFLAGS) -o tmp $<
 	rm tmp
