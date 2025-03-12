@@ -44,7 +44,7 @@ struct Allocator {
 
     // provided methods
     template <typename T>
-    inline T* alloc(size_t size) {
+    inline T* alloc(size_t size = 1) {
         return (T*)raw_alloc(sizeof(T) * size);
     }
 
