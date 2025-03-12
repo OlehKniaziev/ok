@@ -62,17 +62,53 @@ struct Allocator {
     }
 };
 
+#ifndef COMT_PAGE_SIZE
+#define COMT_PAGE_SIZE 4096
+#endif // COMT_PAGE_SIZE
+
+#if defined(__unix__) || defined(__unix) || defined(__APPLE__)
+
+#include <sys/mman.h>
+#include <unistd.h>
+
+#define COMT_ARENA_ALLOC_PAGE(sz) (mmap(NULL, (sz), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0))
+#define COMT_ARENA_DEALLOC_PAGE(page, size) (munmap((page), (size)))
+#define COMT_ARENA_ALLOC_SMOL(sz) (sbrk((sz)))
+
+#else
+
+#error "Only UNIX-like systems are supported"
+
+#endif // unix check
+
+static inline uintptr_t align_to(uintptr_t size, uintptr_t align) {
+    return size + ((align - (size & (align - 1))) & (align - 1));
+}
+
 struct ArenaAllocator : public Allocator {
-    void* raw_alloc(size_t size) override {
-        COMT_UNUSED(size);
-        COMT_TODO();
+    struct Region {
+        Region* next;
+        void* data;
+        size_t size;
+        size_t off;
+    };
+
+    void* raw_alloc(size_t size) override;
+    void raw_dealloc(void* ptr, size_t size) override;
+    void* raw_resize(void* ptr, size_t old_size, size_t new_size) override;
+
+    Region* alloc_region(size_t size);
+
+    inline void reset() {
+        for (Region* r = head; r != nullptr; r = r->next) r->off = 0;
     }
 
-    void raw_dealloc(void* ptr, size_t size) override {
-        COMT_UNUSED(ptr);
-        COMT_UNUSED(size);
-        COMT_TODO();
+    inline void free() {
+        for (Region* r = head; r != nullptr; r = r->next) COMT_ARENA_DEALLOC_PAGE(head->data, head->size);
     }
+
+    Region* head;
+    Region* region_pool;
 };
 
 #define COMT_LIST_GROW_FACTOR(x) ((((x) + 1) * 3) >> 1)
@@ -278,6 +314,77 @@ struct Optional<T*> {
 };
 
 #ifdef COMPARTMENT_IMPLEMENTATION
+
+// ALLOCATORS IMPLEMENTATION
+ArenaAllocator::Region* ArenaAllocator::alloc_region(size_t size) {
+    using Region = ArenaAllocator::Region;
+
+    size = align_to(size, COMT_PAGE_SIZE);
+
+    Region* head = region_pool;
+
+    while (head) {
+        if (head->size - head->off >= sizeof(Region)) {
+            auto* region = (Region*)((uint8_t*)head->data + head->off);
+
+            region->data = (uint8_t*)COMT_ARENA_ALLOC_PAGE(size);
+            COMT_ASSERT(region->data != (void*)-1);
+            region->size = size;
+            region->off = 0;
+            region->next = nullptr;
+
+            return region;
+        }
+
+        head = head->next;
+    }
+
+    head = (Region*)COMT_ARENA_ALLOC_SMOL(sizeof(Region));
+    head->next = region_pool;
+    this->region_pool = head;
+
+    head->data = COMT_ARENA_ALLOC_PAGE(size);
+    head->size = size;
+    head->off = 0;
+    head->next = nullptr;
+
+    return head;
+}
+
+void* ArenaAllocator::raw_alloc(size_t size) {
+    ArenaAllocator::Region* head = this->head;
+
+    size = align_to(size, sizeof(void*));
+
+    while (head) {
+        if (head->size - head->off >= size) {
+            void* ptr = (void*)((uint8_t*)head->data + head->off);
+            head->off += size;
+            return ptr;
+        }
+
+        head = head->next;
+    }
+
+    head = alloc_region(align_to(size, COMT_PAGE_SIZE));
+    head->next = head;
+    this->head = head;
+
+    void* ptr = (void*)((uint8_t*)head->data + head->off);
+    head->off += size;
+    return ptr;
+}
+
+void ArenaAllocator::raw_dealloc(void* ptr, size_t size) {
+    COMT_UNUSED(ptr);
+    COMT_UNUSED(size);
+}
+
+void* ArenaAllocator::raw_resize(void* old_ptr, size_t old_size, size_t new_size) {
+    auto* new_ptr = raw_alloc(new_size);
+    memcpy(new_ptr, old_ptr, old_size);
+    return new_ptr;
+}
 
 // HASH IMPLEMENTATION
 template <typename T>
