@@ -367,7 +367,7 @@ void* ArenaAllocator::raw_alloc(size_t size) {
     }
 
     head = alloc_region(align_to(size, COMT_PAGE_SIZE));
-    head->next = head;
+    head->next = this->head;
     this->head = head;
 
     void* ptr = (void*)((uint8_t*)head->data + head->off);
