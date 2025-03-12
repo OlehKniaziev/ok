@@ -87,6 +87,11 @@ static inline uintptr_t align_to(uintptr_t size, uintptr_t align) {
 
 struct ArenaAllocator : public Allocator {
     struct Region {
+        size_t avail() const {
+            COMT_ASSERT(off <= size);
+            return size - off;
+        }
+
         Region* next;
         void* data;
         size_t size;
@@ -98,6 +103,23 @@ struct ArenaAllocator : public Allocator {
     void* raw_resize(void* ptr, size_t old_size, size_t new_size) override;
 
     Region* alloc_region(size_t size);
+
+    inline size_t avail() const {
+        size_t result = 0;
+        for (Region* r = head; r != nullptr; r = r->next) result += r->avail();
+        return result;
+    }
+
+    inline void reserve(size_t bytes) {
+        size_t available_bytes = avail();
+
+        if (available_bytes < bytes) {
+            size_t bytes_needed = bytes - available_bytes;
+            Region* r = alloc_region(bytes_needed);
+            r->next = head;
+            head = r;
+        }
+    }
 
     inline void reset() {
         for (Region* r = head; r != nullptr; r = r->next) r->off = 0;
