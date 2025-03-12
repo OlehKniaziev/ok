@@ -245,17 +245,43 @@ struct Table {
     Allocator* allocator;
 };
 
-struct String {
-    using Char = uint8_t;
+using Char = uint8_t;
 
+struct String;
+
+struct StringView {
+    String to_string(Allocator* a) const;
+
+    const Char* data;
+    size_t count;
+};
+
+inline bool operator ==(const StringView lhs, const StringView rhs) {
+    if (lhs.count != rhs.count) return false;
+
+    for (size_t i = 0; i < lhs.count; i++) {
+        if (lhs.data[i] != rhs.data[i]) return false;
+    }
+
+    return true;
+}
+
+StringView operator ""_sv(const char*, size_t);
+
+struct String {
     static constexpr Char NULL_CHAR = '\0';
     static constexpr size_t DEFAULT_CAPACITY = 7;
 
     static String alloc(Allocator* a, size_t capacity = DEFAULT_CAPACITY);
-    static String alloc(Allocator* a, const char* data, size_t data_len);
-    static String alloc(Allocator* a, const char* data);
+
+    static String alloc(Allocator* a, const Char* data, size_t data_len);
+    static String alloc(Allocator* a, const Char* data);
 
     static String format(Allocator* a, const char* fmt, ...);
+
+    inline StringView view() const {
+        return StringView{data.items, count()};
+    }
 
     inline void push(Char character) {
         data.push(NULL_CHAR);
@@ -269,13 +295,6 @@ struct String {
 
     List<Char> data;
 };
-
-struct StringView {
-    const String::Char* data;
-    size_t count;
-};
-
-StringView operator ""_sv(const char*, size_t);
 
 #define COMT_SET_GROWTH_FACTOR COMT_TABLE_GROWTH_FACTOR
 
@@ -341,79 +360,6 @@ struct Optional<T*> {
 
     static const Optional<T> NONE;
 };
-
-#ifdef COMPARTMENT_IMPLEMENTATION
-
-// ALLOCATORS IMPLEMENTATION
-ArenaAllocator::Region* ArenaAllocator::alloc_region(size_t size) {
-    using Region = ArenaAllocator::Region;
-
-    size = align_to(size, COMT_PAGE_SIZE);
-
-    Region* head = region_pool;
-
-    while (head) {
-        if (head->size - head->off >= sizeof(Region)) {
-            auto* region = (Region*)((uint8_t*)head->data + head->off);
-
-            region->data = (uint8_t*)COMT_ARENA_ALLOC_PAGE(size);
-            COMT_ASSERT(region->data != (void*)-1);
-            region->size = size;
-            region->off = 0;
-            region->next = nullptr;
-
-            return region;
-        }
-
-        head = head->next;
-    }
-
-    head = (Region*)COMT_ARENA_ALLOC_SMOL(sizeof(Region));
-    head->next = region_pool;
-    this->region_pool = head;
-
-    head->data = COMT_ARENA_ALLOC_PAGE(size);
-    head->size = size;
-    head->off = 0;
-    head->next = nullptr;
-
-    return head;
-}
-
-void* ArenaAllocator::raw_alloc(size_t size) {
-    ArenaAllocator::Region* head = this->head;
-
-    size = align_to(size, sizeof(void*));
-
-    while (head) {
-        if (head->size - head->off >= size) {
-            void* ptr = (void*)((uint8_t*)head->data + head->off);
-            head->off += size;
-            return ptr;
-        }
-
-        head = head->next;
-    }
-
-    head = alloc_region(align_to(size, COMT_PAGE_SIZE));
-    head->next = this->head;
-    this->head = head;
-
-    void* ptr = (void*)((uint8_t*)head->data + head->off);
-    head->off += size;
-    return ptr;
-}
-
-void ArenaAllocator::raw_dealloc(void* ptr, size_t size) {
-    COMT_UNUSED(ptr);
-    COMT_UNUSED(size);
-}
-
-void* ArenaAllocator::raw_resize(void* old_ptr, size_t old_size, size_t new_size) {
-    auto* new_ptr = raw_alloc(new_size);
-    memcpy(new_ptr, old_ptr, old_size);
-    return new_ptr;
-}
 
 // HASH IMPLEMENTATION
 template <typename T>
@@ -598,64 +544,6 @@ bool Table<K, V>::has(const K& key) {
     return false;
 }
 
-// STRING IMPLEMENTATION
-
-String String::alloc(Allocator* a, size_t capacity) {
-    String s;
-    s.data = List<Char>::alloc(a, capacity + 1);
-    s.data.push(NULL_CHAR);
-
-    return s;
-}
-
-String String::alloc(Allocator* a, const char* data, size_t data_len) {
-    auto s = String::alloc(a, data_len);
-
-    for (size_t i = 0; i < data_len; i++) s.push((Char)data[i]);
-
-    return s;
-}
-
-String String::alloc(Allocator* a, const char* data) {
-    size_t data_len = strlen(data);
-    return String::alloc(a, data, data_len);
-}
-
-String String::format(Allocator* a, const char* fmt, ...) {
-    va_list sprintf_args;
-
-    int buf_size;
-    va_start(sprintf_args, fmt);
-    {
-        char* sprintf_buf = nullptr;
-        buf_size = vsprintf(sprintf_buf, fmt, sprintf_args);
-        COMT_ASSERT(buf_size != -1);
-
-        buf_size += 1;
-    }
-    va_end(sprintf_args);
-
-    auto buf = String::alloc(a, buf_size);
-
-    va_start(sprintf_args, fmt);
-    {
-        int bytes_written = vsprintf((char*)buf.data.items, fmt, sprintf_args);
-        COMT_ASSERT(bytes_written != -1);
-    }
-    va_end(sprintf_args);
-
-    buf.data.count = buf_size;
-
-    return buf;
-}
-
-// STRING VIEW IMPLEMENTATION
-StringView operator ""_sv(const char* cstr, size_t len) {
-    static_assert(sizeof(String::Char) == sizeof(char));
-
-    return StringView{(const String::Char*)cstr, len};
-}
-
 // SET IMPLEMENTATION
 template <typename T>
 Set<T> Set<T>::alloc(Allocator* a, size_t capacity) {
@@ -717,6 +605,152 @@ bool Set<T>::has(const T& elem) const {
     } while (idx != hash);
 
     return false;
+}
+
+#ifdef COMPARTMENT_IMPLEMENTATION
+
+static void _init_region(ArenaAllocator::Region* region, size_t size) {
+    region->data = (uint8_t*)COMT_ARENA_ALLOC_PAGE(size);
+    COMT_ASSERT(region->data != (void*)-1);
+    region->size = size;
+    region->off = 0;
+    region->next = nullptr;
+}
+
+// ALLOCATORS IMPLEMENTATION
+ArenaAllocator::Region* ArenaAllocator::alloc_region(size_t region_size) {
+    using Region = ArenaAllocator::Region;
+
+    region_size = align_to(region_size, COMT_PAGE_SIZE);
+
+    Region* current_region = region_pool;
+
+    while (current_region) {
+        if (current_region->size - current_region->off >= sizeof(Region)) {
+            auto* region = (Region*)((uint8_t*)current_region->data + current_region->off);
+
+            _init_region(region, region_size);
+
+            current_region->off += align_to(sizeof(Region), sizeof(void*));
+
+            return region;
+        }
+
+        head = head->next;
+    }
+
+    current_region = (Region*)COMT_ARENA_ALLOC_SMOL(sizeof(Region));
+
+    current_region->data = COMT_ARENA_ALLOC_PAGE(COMT_PAGE_SIZE);
+    current_region->size = COMT_PAGE_SIZE;
+    current_region->off = align_to(sizeof(Region), sizeof(void*));
+    current_region->next = region_pool;
+
+    this->region_pool = current_region;
+
+    auto* resulting_region = (Region*)current_region->data;
+    _init_region(resulting_region, region_size);
+    return resulting_region;
+}
+
+void* ArenaAllocator::raw_alloc(size_t size) {
+    ArenaAllocator::Region* head = this->head;
+
+    size = align_to(size, sizeof(void*));
+
+    while (head) {
+        if (head->size - head->off >= size) {
+            void* ptr = (void*)((uint8_t*)head->data + head->off);
+            head->off += size;
+            return ptr;
+        }
+
+        head = head->next;
+    }
+
+    size_t region_size = align_to(size, COMT_PAGE_SIZE);
+    head = alloc_region(region_size);
+    head->next = this->head;
+    this->head = head;
+
+    void* ptr = (void*)((uint8_t*)head->data + head->off);
+    head->off += size;
+    return ptr;
+}
+
+void ArenaAllocator::raw_dealloc(void* ptr, size_t size) {
+    COMT_UNUSED(ptr);
+    COMT_UNUSED(size);
+}
+
+void* ArenaAllocator::raw_resize(void* old_ptr, size_t old_size, size_t new_size) {
+    auto* new_ptr = raw_alloc(new_size);
+    memcpy(new_ptr, old_ptr, old_size);
+    return new_ptr;
+}
+
+// STRING IMPLEMENTATION
+
+String String::alloc(Allocator* a, size_t capacity) {
+    String s;
+    s.data = List<Char>::alloc(a, capacity + 1);
+    s.data.push(NULL_CHAR);
+
+    return s;
+}
+
+String String::alloc(Allocator* a, const Char* data, size_t data_len) {
+    auto s = String::alloc(a, data_len);
+
+    for (size_t i = 0; i < data_len; i++) s.push((Char)data[i]);
+
+    return s;
+}
+
+String String::alloc(Allocator* a, const Char* data) {
+    static_assert(sizeof(Char) == sizeof(char));
+
+    size_t data_len = strlen((const char*)data);
+    return String::alloc(a, data, data_len);
+}
+
+String String::format(Allocator* a, const char* fmt, ...) {
+    va_list sprintf_args;
+
+    int buf_size;
+    va_start(sprintf_args, fmt);
+    {
+        char* sprintf_buf = nullptr;
+        buf_size = vsprintf(sprintf_buf, fmt, sprintf_args);
+        COMT_ASSERT(buf_size != -1);
+
+        buf_size += 1;
+    }
+    va_end(sprintf_args);
+
+    auto buf = String::alloc(a, buf_size);
+
+    va_start(sprintf_args, fmt);
+    {
+        int bytes_written = vsprintf((char*)buf.data.items, fmt, sprintf_args);
+        COMT_ASSERT(bytes_written != -1);
+    }
+    va_end(sprintf_args);
+
+    buf.data.count = buf_size;
+
+    return buf;
+}
+
+// STRING VIEW IMPLEMENTATION
+StringView operator ""_sv(const char* cstr, size_t len) {
+    static_assert(sizeof(Char) == sizeof(char));
+
+    return StringView{(const Char*)cstr, len};
+}
+
+String StringView::to_string(Allocator* a) const {
+    return String::alloc(a, data, count);
 }
 
 #endif
