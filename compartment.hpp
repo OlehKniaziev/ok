@@ -276,8 +276,13 @@ struct String {
 
     static String alloc(Allocator* a, const Char* data, size_t data_len);
     static String alloc(Allocator* a, const Char* data);
+    static String alloc(Allocator* a, const char* data);
 
     static String format(Allocator* a, const char* fmt, ...);
+
+    inline const char* cstr() {
+        return reinterpret_cast<const char*>(data.items);
+    }
 
     inline StringView view() const {
         return StringView{data.items, count()};
@@ -712,6 +717,13 @@ String String::alloc(Allocator* a, const Char* data) {
 
     size_t data_len = strlen((const char*)data);
     return String::alloc(a, data, data_len);
+}
+
+String String::alloc(Allocator* a, const char* data) {
+    static_assert(sizeof(Char) == sizeof(char));
+
+    size_t data_len = strlen(data);
+    return String::alloc(a, (const Char*)data, data_len);
 }
 
 String String::format(Allocator* a, const char* fmt, ...) {
