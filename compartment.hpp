@@ -642,7 +642,7 @@ bool Set<T>::has(const T& elem) const {
 }
 
 // procedures
-void panic(const char*, ...) __attribute__((format(printf, 1, 2)));
+[[noreturn]] void panic(const char*, ...) __attribute__((format(printf, 1, 2)));
 
 #ifdef COMPARTMENT_IMPLEMENTATION
 
