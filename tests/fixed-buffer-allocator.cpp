@@ -21,5 +21,17 @@ int main() {
     String* very_big_allocation = a.alloc<String>(1'000'000);
     COMT_ASSERT(very_big_allocation == nullptr);
 
+    a.buffer_off = 0;
+
+    size_t bytes_count = FixedBufferAllocator::DEFAULT_PAGE_COUNT * COMT_PAGE_SIZE;
+
+    uint8_t* bytes = a.alloc<uint8_t>(bytes_count);
+    COMT_ASSERT(bytes != nullptr);
+    COMT_ASSERT(a.buffer_off == bytes_count);
+
+    int* smol_int = a.alloc<int>();
+    COMT_ASSERT(smol_int != nullptr);
+    COMT_ASSERT(a.buffer_off == sizeof(void*));
+
     return 0;
 }
