@@ -652,7 +652,10 @@ void* FixedBufferAllocator::raw_alloc(size_t size) {
         buffer_size = max(size, COMT_PAGE_SIZE * FixedBufferAllocator::DEFAULT_PAGE_COUNT);
         buffer_size = align_to(buffer_size, COMT_PAGE_SIZE);
         buffer = COMT_ALLOC_PAGE(buffer_size);
+        buffer_off = 0;
     }
+
+    if (size > buffer_size) return nullptr;
 
     if (buffer_size - buffer_off < size) {
         buffer_off = size;
