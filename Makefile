@@ -15,5 +15,6 @@ test: smoke-test $(TEST_FILES)
 	@ echo All tests passed.
 
 smoke-test: $(SMOKE_TEST) compartment.hpp
-	$(CXX) $(CXXFLAGS) -o tmp $<
-	rm tmp
+	@ $(CXX) $(CXXFLAGS) -o tmp $<
+	@ rm tmp
+	@ echo Passed the smoke test
