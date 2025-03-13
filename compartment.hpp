@@ -642,6 +642,28 @@ bool Set<T>::has(const T& elem) const {
 }
 
 // procedures
+template <typename T>
+const T& max(const T& a) {
+    return a;
+}
+
+template <typename T, typename... Rest>
+const T& max(const T& x, const Rest&... xs) {
+    const T& xs_max = max(xs...);
+    return x > xs_max ? x : xs_max;
+}
+
+template <typename T>
+const T& min(const T& a) {
+    return a;
+}
+
+template <typename T, typename... Rest>
+const T& min(const T& x, const Rest&... xs) {
+    const T& xs_min = min(xs...);
+    return x < xs_min ? x : xs_min;
+}
+
 [[noreturn]] void panic(const char*, ...) __attribute__((format(printf, 1, 2)));
 
 #ifdef COMPARTMENT_IMPLEMENTATION
@@ -656,11 +678,6 @@ static void _init_region(ArenaAllocator::Region* region, size_t size) {
     region->off = 0;
     region->next = nullptr;
 }
-
-    template <typename T>
-    static inline const T& max(const T& left, const T& right) {
-        return left > right ? left : right;
-    }
 
 // ALLOCATORS IMPLEMENTATION
 void* FixedBufferAllocator::raw_alloc(size_t size) {
