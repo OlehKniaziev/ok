@@ -278,9 +278,9 @@ struct String {
     static String alloc(Allocator* a, const Char* data);
     static String alloc(Allocator* a, const char* data);
 
-    static String format(Allocator* a, const char* fmt, ...);
+    static String format(Allocator* a, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 
-    inline const char* cstr() {
+    inline const char* cstr() const {
         return reinterpret_cast<const char*>(data.items);
     }
 
