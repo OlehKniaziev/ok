@@ -146,7 +146,11 @@ struct ArenaAllocator : public Allocator {
     Region* region_pool;
 };
 
+// templates
 #define COMT_LIST_GROW_FACTOR(x) ((((x) + 1) * 3) >> 1)
+
+template <typename T>
+struct Slice;
 
 template <typename T>
 struct List {
@@ -166,6 +170,10 @@ struct List {
     template <typename F>
     size_t find_index(F pred);
 
+    Slice<T> slice(size_t start, size_t end) const;
+    Slice<T> slice(size_t start) const;
+    Slice<T> slice() const;
+
     inline T& operator [](size_t idx) {
         COMT_ASSERT(idx < count);
 
@@ -182,6 +190,24 @@ struct List {
     size_t count;
     size_t capacity;
     Allocator* allocator;
+};
+
+template <typename T>
+struct Slice {
+    inline T& operator [](size_t idx) {
+        COMT_ASSERT(idx < count);
+
+        return items[idx];
+    }
+
+    inline const T& operator [](size_t idx) const {
+        COMT_ASSERT(idx < count);
+
+        return items[idx];
+    }
+
+    const T* items;
+    size_t count;
 };
 
 #define COMT_TAB_META_OCCUPIED 0x01
@@ -493,6 +519,19 @@ inline size_t List<T>::find_index(F pred) {
     }
 
     return (size_t)-1;
+}
+
+Slice<T> List<T>::slice(size_t start, size_t end) {
+    COMT_ASSERT(end >= start);
+    return Slice{items + start, end - start};
+}
+
+Slice<T> List<T>::slice(size_t start) {
+    return slice(start, count);
+}
+
+Slice<T> List<T>::slice() {
+    return slice(0, count);
 }
 
 // TABLE IMPLEMENTATION
