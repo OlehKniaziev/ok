@@ -664,6 +664,14 @@ const T& min(const T& x, const Rest&... xs) {
     return x < xs_min ? x : xs_min;
 }
 
+void println(const char*);
+void println(StringView);
+void println(String);
+
+void eprintln(const char*);
+void eprintln(String);
+void eprintln(StringView);
+
 [[noreturn]] void panic(const char*, ...) __attribute__((format(printf, 1, 2)));
 
 String to_string(Allocator*, int32_t);
@@ -1002,6 +1010,30 @@ String to_string(Allocator* allocator, int64_t input_value) {
     s.data.count = string_count + 1;
 
     return s;
+}
+
+void println(const char* msg) {
+    ::printf("%s\n", msg);
+}
+
+void println(StringView sv) {
+    ::printf(COMT_SV_FMT "\n", COMT_SV_ARG(sv));
+}
+
+void println(String string) {
+    ::printf("%s\n", string.cstr());
+}
+
+void eprintln(const char* msg) {
+    ::fprintf(stderr, "%s\n", msg);
+}
+
+void eprintln(StringView sv) {
+    ::fprintf(stderr, COMT_SV_FMT "\n", COMT_SV_ARG(sv));
+}
+
+void eprintln(String string) {
+    ::fprintf(stderr, "%s\n", string.cstr());
 }
 
 #endif
