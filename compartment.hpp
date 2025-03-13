@@ -71,15 +71,26 @@ struct Allocator {
 #include <sys/mman.h>
 #include <unistd.h>
 
-#define COMT_ARENA_ALLOC_PAGE(sz) (mmap(NULL, (sz), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0))
-#define COMT_ARENA_DEALLOC_PAGE(page, size) (munmap((page), (size)))
-#define COMT_ARENA_ALLOC_SMOL(sz) (sbrk((sz)))
+#define COMT_ALLOC_PAGE(sz) (mmap(NULL, (sz), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0))
+#define COMT_DEALLOC_PAGE(page, size) (munmap((page), (size)))
+#define COMT_ALLOC_SMOL(sz) (sbrk((sz)))
 
 #else
 
 #error "Only UNIX-like systems are supported"
 
 #endif // unix check
+
+struct FixedBufferAllocator : public Allocator {
+    void* raw_alloc(size_t size) override;
+    void raw_dealloc(void* ptr, size_t size) override;
+
+    static constexpr size_t DEFAULT_PAGE_COUNT = 5;
+
+    void* buffer;
+    size_t buffer_size;
+    size_t buffer_off;
+};
 
 static inline uintptr_t align_to(uintptr_t size, uintptr_t align) {
     return size + ((align - (size & (align - 1))) & (align - 1));
@@ -126,7 +137,7 @@ struct ArenaAllocator : public Allocator {
     }
 
     inline void free() {
-        for (Region* r = head; r != nullptr; r = r->next) COMT_ARENA_DEALLOC_PAGE(head->data, head->size);
+        for (Region* r = head; r != nullptr; r = r->next) COMT_DEALLOC_PAGE(head->data, head->size);
     }
 
     Region* head;
@@ -618,14 +629,42 @@ bool Set<T>::has(const T& elem) const {
 #ifdef COMPARTMENT_IMPLEMENTATION
 
 static void _init_region(ArenaAllocator::Region* region, size_t size) {
-    region->data = (uint8_t*)COMT_ARENA_ALLOC_PAGE(size);
+    region->data = (uint8_t*)COMT_ALLOC_PAGE(size);
     COMT_ASSERT(region->data != (void*)-1);
     region->size = size;
     region->off = 0;
     region->next = nullptr;
 }
 
+    template <typename T>
+    static inline const T& max(const T& left, const T& right) {
+        return left > right ? left : right;
+    }
+
 // ALLOCATORS IMPLEMENTATION
+void* FixedBufferAllocator::raw_alloc(size_t size) {
+    size = align_to(size, sizeof(void*));
+
+    if (buffer == nullptr) {
+        buffer_size = max(size, COMT_PAGE_SIZE * FixedBufferAllocator::DEFAULT_PAGE_COUNT);
+        buffer_size = align_to(buffer_size, COMT_PAGE_SIZE);
+        buffer = COMT_ALLOC_PAGE(buffer_size);
+    }
+
+    if (buffer_size - buffer_off < size) {
+        buffer_off = size;
+        return buffer;
+    }
+
+    auto* ptr = (uint8_t*)buffer + buffer_off;
+    buffer_off += size;
+    return (void*)ptr;
+}
+
+void FixedBufferAllocator::raw_dealloc(void* ptr, size_t size) {
+    if (ptr == (void*)((uint8_t*)buffer + buffer_off)) buffer_off -= size;
+}
+
 ArenaAllocator::Region* ArenaAllocator::alloc_region(size_t region_size) {
     using Region = ArenaAllocator::Region;
 
@@ -647,9 +686,9 @@ ArenaAllocator::Region* ArenaAllocator::alloc_region(size_t region_size) {
         head = head->next;
     }
 
-    current_region = (Region*)COMT_ARENA_ALLOC_SMOL(sizeof(Region));
+    current_region = (Region*)COMT_ALLOC_SMOL(sizeof(Region));
 
-    current_region->data = COMT_ARENA_ALLOC_PAGE(COMT_PAGE_SIZE);
+    current_region->data = COMT_ALLOC_PAGE(COMT_PAGE_SIZE);
     current_region->size = COMT_PAGE_SIZE;
     current_region->off = align_to(sizeof(Region), sizeof(void*));
     current_region->next = region_pool;
