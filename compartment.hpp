@@ -296,6 +296,11 @@ struct String {
 
     static String format(Allocator* a, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 
+    void append(StringView);
+    void append(String);
+
+    void format_append(const char*, ...) __attribute__((format(printf, 2, 3)));
+
     inline const char* cstr() const {
         return reinterpret_cast<const char*>(data.items);
     }
@@ -307,6 +312,14 @@ struct String {
     inline void push(Char character) {
         data.push(NULL_CHAR);
         data[data.count - 2] = character;
+    }
+
+    inline void reserve(size_t chars) {
+        size_t available_size = count();
+
+        if (available_size >= chars) return;
+
+        data.reserve(chars + 1);
     }
 
     inline size_t count() const {
@@ -805,6 +818,41 @@ String String::format(Allocator* a, const char* fmt, ...) {
     buf.data.count = buf_size;
 
     return buf;
+}
+
+void String::append(StringView sv) {
+    for (size_t i = 0; i < sv.count; ++i) push(sv.data[i]);
+}
+
+void String::append(String str) {
+    size_t str_count = str.count();
+    for (size_t i = 0; i < str_count; ++i) push(str.data.items[i]);
+}
+
+void String::format_append(const char* fmt, ...) {
+    va_list sprintf_args;
+
+    int required_buf_size;
+    va_start(sprintf_args, fmt);
+    {
+        char* sprintf_buf = nullptr;
+        required_buf_size = vsnprintf(sprintf_buf, 0, fmt, sprintf_args);
+        COMT_ASSERT(required_buf_size != -1);
+    }
+    va_end(sprintf_args);
+
+    size_t bytes_needed = count() + required_buf_size;
+    reserve(bytes_needed);
+
+    va_start(sprintf_args, fmt);
+    {
+        char* buf = (char*)data.items + count();
+        int bytes_written = vsnprintf(buf, required_buf_size + 1, fmt, sprintf_args);
+        COMT_ASSERT(bytes_written != -1);
+    }
+    va_end(sprintf_args);
+
+    data.count += required_buf_size;
 }
 
 // STRING VIEW IMPLEMENTATION
