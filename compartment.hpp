@@ -249,6 +249,9 @@ using Char = uint8_t;
 
 struct String;
 
+#define COMT_SV_FMT "%.*s"
+#define COMT_SV_ARG(sv) (int)(sv).count, reinterpret_cast<const char*>((sv).data)
+
 struct StringView {
     String to_string(Allocator* a) const;
 
