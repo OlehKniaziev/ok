@@ -62,6 +62,8 @@ struct Allocator {
     }
 };
 
+extern Allocator* temp_allocator;
+
 #ifndef COMT_PAGE_SIZE
 #define COMT_PAGE_SIZE 4096
 #endif // COMT_PAGE_SIZE
@@ -630,6 +632,9 @@ bool Set<T>::has(const T& elem) const {
 void panic(const char*, ...) __attribute__((format(printf, 1, 2)));
 
 #ifdef COMPARTMENT_IMPLEMENTATION
+
+FixedBufferAllocator _temp_allocator_impl{};
+Allocator* temp_allocator = &_temp_allocator_impl;
 
 static void _init_region(ArenaAllocator::Region* region, size_t size) {
     region->data = (uint8_t*)COMT_ALLOC_PAGE(size);
