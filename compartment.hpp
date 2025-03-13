@@ -666,6 +666,11 @@ const T& min(const T& x, const Rest&... xs) {
 
 [[noreturn]] void panic(const char*, ...) __attribute__((format(printf, 1, 2)));
 
+String to_string(Allocator*, int32_t);
+String to_string(Allocator*, uint32_t);
+String to_string(Allocator*, int64_t);
+String to_string(Allocator*, uint64_t);
+
 #ifdef COMPARTMENT_IMPLEMENTATION
 
 FixedBufferAllocator _temp_allocator_impl{};
@@ -893,6 +898,110 @@ void panic(const char* fmt, ...) {
     va_end(fmt_args);
 
     abort();
+}
+
+String to_string(Allocator* allocator, uint32_t value) {
+    String s = String::alloc(allocator, 10);
+
+    uint32_t value_copy = value;
+    int idx = 0;
+
+    while (value_copy /= 10) idx++;
+
+    size_t string_count = idx + 1;
+
+    do {
+        char digit = value % 10;
+        value /= 10;
+        s.data.items[idx--] = digit + '0';
+    } while (value != 0);
+
+    s.data.items[string_count] = String::NULL_CHAR;
+    s.data.count = string_count + 1;
+
+    return s;
+}
+
+String to_string(Allocator* allocator, int32_t input_value) {
+    String s = String::alloc(allocator, 10);
+
+    uint32_t value = input_value;
+    int idx = 0;
+
+    if (input_value < 0) {
+        s.push('-');
+        value = -value;
+        idx = 1;
+    }
+
+    int32_t value_copy = value;
+
+    while (value_copy /= 10) idx++;
+
+    size_t string_count = idx + 1;
+
+    do {
+        char digit = value % 10;
+        value /= 10;
+        s.data.items[idx--] = digit + '0';
+    } while (value != 0);
+
+    s.data.items[string_count] = String::NULL_CHAR;
+    s.data.count = string_count + 1;
+
+    return s;
+}
+
+String to_string(Allocator* allocator, uint64_t value) {
+    String s = String::alloc(allocator, 10);
+
+    uint64_t value_copy = value;
+    int idx = 0;
+
+    while (value_copy /= 10) idx++;
+
+    size_t string_count = idx + 1;
+
+    do {
+        char digit = value % 10;
+        value /= 10;
+        s.data.items[idx--] = digit + '0';
+    } while (value != 0);
+
+    s.data.items[string_count] = String::NULL_CHAR;
+    s.data.count = string_count + 1;
+
+    return s;
+}
+
+String to_string(Allocator* allocator, int64_t input_value) {
+    String s = String::alloc(allocator, 10);
+
+    uint64_t value = input_value;
+    int idx = 0;
+
+    if (input_value < 0) {
+        s.push('-');
+        value = -value;
+        idx = 1;
+    }
+
+    int64_t value_copy = value;
+
+    while (value_copy /= 10) idx++;
+
+    size_t string_count = idx + 1;
+
+    do {
+        char digit = value % 10;
+        value /= 10;
+        s.data.items[idx--] = digit + '0';
+    } while (value != 0);
+
+    s.data.items[string_count] = String::NULL_CHAR;
+    s.data.count = string_count + 1;
+
+    return s;
 }
 
 #endif

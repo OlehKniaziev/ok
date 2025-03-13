@@ -1,5 +1,5 @@
 SMOKE_TEST = tests/smoke.cpp
-TEST_FILES = tests/arena.test.o tests/string-view.test.o tests/string.test.o tests/fixed-buffer-allocator.test.o
+TEST_FILES = tests/arena.test.o tests/string-view.test.o tests/string.test.o tests/fixed-buffer-allocator.test.o tests/to-string.test.o
 
 CXXFLAGS += -Wall -Wextra -Werror -pedantic
 
