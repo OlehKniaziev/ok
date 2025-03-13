@@ -626,6 +626,9 @@ bool Set<T>::has(const T& elem) const {
     return false;
 }
 
+// procedures
+void panic(const char*, ...) __attribute__((format(printf, 1, 2)));
+
 #ifdef COMPARTMENT_IMPLEMENTATION
 
 static void _init_region(ArenaAllocator::Region* region, size_t size) {
@@ -805,6 +808,18 @@ StringView operator ""_sv(const char* cstr, size_t len) {
 
 String StringView::to_string(Allocator* a) const {
     return String::alloc(a, data, count);
+}
+
+void panic(const char* fmt, ...) {
+    va_list fmt_args;
+
+    va_start(fmt_args, fmt);
+    {
+        vfprintf(stderr, fmt, fmt_args);
+    }
+    va_end(fmt_args);
+
+    abort();
 }
 
 #endif
