@@ -733,7 +733,7 @@ String String::format(Allocator* a, const char* fmt, ...) {
     va_start(sprintf_args, fmt);
     {
         char* sprintf_buf = nullptr;
-        buf_size = vsprintf(sprintf_buf, fmt, sprintf_args);
+        buf_size = vsnprintf(sprintf_buf, 0, fmt, sprintf_args);
         COMT_ASSERT(buf_size != -1);
 
         buf_size += 1;
@@ -744,7 +744,7 @@ String String::format(Allocator* a, const char* fmt, ...) {
 
     va_start(sprintf_args, fmt);
     {
-        int bytes_written = vsprintf((char*)buf.data.items, fmt, sprintf_args);
+        int bytes_written = vsnprintf((char*)buf.data.items, buf_size, fmt, sprintf_args);
         COMT_ASSERT(bytes_written != -1);
     }
     va_end(sprintf_args);
