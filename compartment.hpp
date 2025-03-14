@@ -194,6 +194,19 @@ struct List {
 
 template <typename T>
 struct Slice {
+    inline Slice<T> slice(size_t start, size_t end) const {
+        COMT_ASSERT(end >= start);
+        return Slice<T>{items + start, end - start};
+    }
+
+    inline Slice<T> slice(size_t start) const {
+        return slice(start, count);
+    }
+
+    inline Slice<T> slice() const {
+        return slice(0, count);
+    }
+
     inline const T& operator [](size_t idx) const {
         COMT_ASSERT(idx < count);
 
