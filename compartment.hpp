@@ -63,6 +63,7 @@ struct Allocator {
 };
 
 extern Allocator* temp_allocator;
+extern Allocator* static_allocator;
 
 #ifndef COMT_PAGE_SIZE
 #define COMT_PAGE_SIZE 4096
@@ -732,6 +733,9 @@ String to_string(Allocator*, uint64_t);
 
 FixedBufferAllocator _temp_allocator_impl{};
 Allocator* temp_allocator = &_temp_allocator_impl;
+
+ArenaAllocator _static_allocator_impl{};
+Allocator* static_allocator = &_static_allocator_impl;
 
 static void _init_region(ArenaAllocator::Region* region, size_t size) {
     region->data = (uint8_t*)COMT_ALLOC_PAGE(size);
