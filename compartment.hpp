@@ -294,6 +294,11 @@ struct Table {
 
 using Char = uint8_t;
 
+// char predicates
+bool is_whitespace(Char);
+bool is_digit(Char);
+bool is_alpha(Char);
+
 struct String;
 
 #define COMT_SV_FMT "%.*s"
@@ -1111,6 +1116,22 @@ void eprintln(StringView sv) {
 
 void eprintln(String string) {
     ::fprintf(stderr, "%s\n", string.cstr());
+}
+
+bool is_whitespace(Char c) {
+    return c == '\t' ||
+           c == '\n' ||
+           c == '\v' ||
+           c == '\r' ||
+           c == ' ';
+}
+
+bool is_digit(Char c) {
+    return c >= '0' && c <= '9';
+}
+
+bool is_alpha(Char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 
 #endif
