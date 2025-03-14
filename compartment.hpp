@@ -336,11 +336,23 @@ struct String {
     void format_append(const char*, ...) __attribute__((format(printf, 2, 3)));
 
     inline const char* cstr() const {
+        static_assert(sizeof(Char) == sizeof(char));
         return reinterpret_cast<const char*>(data.items);
     }
 
+    inline StringView view(size_t start, size_t end) const {
+        COMT_ASSERT(start < count());
+        COMT_ASSERT(end >= start);
+
+        return StringView{data.items + start, end - start};
+    }
+
+    inline StringView view(size_t start) const {
+        return view(start, count());
+    }
+
     inline StringView view() const {
-        return StringView{data.items, count()};
+        return view(0, count());
     }
 
     inline void push(Char character) {
@@ -359,6 +371,18 @@ struct String {
     inline size_t count() const {
         COMT_ASSERT(data.count != 0);
         return data.count - 1;
+    }
+
+    inline Char& operator [](size_t idx) {
+        COMT_ASSERT(idx < count());
+
+        return data.items[idx];
+    }
+
+    inline const Char& operator [](size_t idx) const {
+        COMT_ASSERT(idx < count());
+
+        return data.items[idx];
     }
 
     List<Char> data;
