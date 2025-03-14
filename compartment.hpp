@@ -194,12 +194,6 @@ struct List {
 
 template <typename T>
 struct Slice {
-    inline T& operator [](size_t idx) {
-        COMT_ASSERT(idx < count);
-
-        return items[idx];
-    }
-
     inline const T& operator [](size_t idx) const {
         COMT_ASSERT(idx < count);
 
@@ -521,16 +515,19 @@ inline size_t List<T>::find_index(F pred) {
     return (size_t)-1;
 }
 
-Slice<T> List<T>::slice(size_t start, size_t end) {
+template <typename T>
+Slice<T> List<T>::slice(size_t start, size_t end) const {
     COMT_ASSERT(end >= start);
     return Slice{items + start, end - start};
 }
 
-Slice<T> List<T>::slice(size_t start) {
+template <typename T>
+Slice<T> List<T>::slice(size_t start) const {
     return slice(start, count);
 }
 
-Slice<T> List<T>::slice() {
+template <typename T>
+Slice<T> List<T>::slice() const {
     return slice(0, count);
 }
 
