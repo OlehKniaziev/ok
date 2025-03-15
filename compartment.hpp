@@ -837,7 +837,7 @@ ArenaAllocator::Region* ArenaAllocator::alloc_region(size_t region_size) {
             return region;
         }
 
-        head = head->next;
+        current_region = current_region->next;
     }
 
     current_region = (Region*)COMT_ALLOC_SMOL(sizeof(Region));
