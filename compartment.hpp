@@ -319,11 +319,46 @@ struct String {
     List<Char> data;
 };
 
-#define COMT_TAB_META_OCCUPIED 0x01
-#define COMT_TAB_IS_OCCUPIED(meta) ((meta) & COMT_TAB_META_OCCUPIED)
-#define COMT_TAB_IS_FREE(meta) (!COMT_TAB_IS_OCCUPIED((meta)))
+template <typename T>
+struct Optional {
+    Optional() : _has_value{false} {}
 
-#define COMT_TABLE_GROWTH_FACTOR(x) (((x) + 1) * 3)
+    Optional(T value) : _has_value{true}, value{value} {}
+
+    inline bool has_value() const {
+        return _has_value;
+    }
+
+    inline T& get() {
+        COMT_ASSERT(has_value());
+        return value;
+    }
+
+    bool _has_value;
+    T value;
+
+    static const Optional<T> NONE;
+};
+
+template <typename T>
+struct Optional<T*> {
+    Optional() : value{nullptr} {}
+
+    Optional(T* value) : value{value} {}
+
+    inline bool has_value() const {
+        return value != nullptr;
+    }
+
+    inline T& get() {
+        COMT_ASSERT(has_value());
+        return *value;
+    }
+
+    T* value;
+
+    static const Optional<T> NONE;
+};
 
 namespace hash {
 uint64_t fnv1(StringView);
@@ -378,7 +413,13 @@ struct Hash<String> {
 template <typename T>
 bool operator ==(const HashPtr<T>& lhs, const HashPtr<T>& rhs);
 
-#define TABLE_FOREACH(tab, key, value, code) do { \
+#define COMT_TAB_META_OCCUPIED 0x01
+#define COMT_TAB_IS_OCCUPIED(meta) ((meta) & COMT_TAB_META_OCCUPIED)
+#define COMT_TAB_IS_FREE(meta) (!COMT_TAB_IS_OCCUPIED((meta)))
+
+#define COMT_TABLE_GROWTH_FACTOR(x) (((x) + 1) * 3)
+
+#define COMT_TABLE_FOREACH(tab, key, value, code) do { \
     for (size_t _tab_i = 0; _tab_i < (tab).capacity; _tab_i++) {\
     if (COMT_TAB_IS_FREE((tab).meta[_tab_i])) continue; \
     auto key = (tab).keys[_tab_i]; \
@@ -394,7 +435,7 @@ struct Table {
     static Table<K, V> alloc(Allocator* a, size_t capacity = Table::DEFAULT_CAPACITY);
 
     void put(const K& key, const V& value);
-    bool get(const K& key, V* out);
+    Optional<V> get(const K& key);
     bool has(const K& key);
 
     static constexpr size_t DEFAULT_CAPACITY = 47;
@@ -433,47 +474,6 @@ struct Set {
     size_t count;
     T* values;
     uint8_t* meta;
-};
-
-template <typename T>
-struct Optional {
-    Optional() : _has_value{false} {}
-
-    Optional(T value) : _has_value{true}, value{value} {}
-
-    inline bool has_value() const {
-        return _has_value;
-    }
-
-    inline T& get() {
-        COMT_ASSERT(has_value());
-        return value;
-    }
-
-    bool _has_value;
-    T value;
-
-    static const Optional<T> NONE;
-};
-
-template <typename T>
-struct Optional<T*> {
-    Optional() : value{nullptr} {}
-
-    Optional(T* value) : value{value} {}
-
-    inline bool has_value() const {
-        return value != nullptr;
-    }
-
-    inline T& get() {
-        COMT_ASSERT(has_value());
-        return *value;
-    }
-
-    T* value;
-
-    static const Optional<T> NONE;
 };
 
 // HASH IMPLEMENTATION
@@ -643,20 +643,19 @@ void Table<K, V>::put(const K& key, const V& value) {
 }
 
 template <typename K, typename V>
-bool Table<K, V>::get(const K& key, V* out) {
+Optional<V> Table<K, V>::get(const K& key) {
     uint64_t idx = Hash<K>::hash(key) % capacity;
     uint64_t initial_idx = idx;
 
     do {
         if (COMT_TAB_IS_OCCUPIED(meta[idx]) && keys[idx] == key) {
-            *out = values[idx];
-            return true;
+            return values[idx];
         }
 
         idx = (idx + 1) % capacity;
     } while (idx != initial_idx);
 
-    return false;
+    return {};
 }
 
 template <typename K, typename V>
