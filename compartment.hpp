@@ -218,80 +218,6 @@ struct Slice {
     size_t count;
 };
 
-#define COMT_TAB_META_OCCUPIED 0x01
-#define COMT_TAB_IS_OCCUPIED(meta) ((meta) & COMT_TAB_META_OCCUPIED)
-#define COMT_TAB_IS_FREE(meta) (!COMT_TAB_IS_OCCUPIED((meta)))
-
-#define COMT_TABLE_GROWTH_FACTOR(x) (((x) + 1) * 3)
-
-template <typename T>
-struct Hash {};
-
-template <typename T>
-struct HashPtr {
-    HashPtr(const T* v) : value{v} {}
-    HashPtr(T* v) : value{v} {}
-    const T* value;
-};
-
-// Default hash implementations
-template <typename T>
-struct Hash<HashPtr<T>> {
-    static uint64_t hash(const HashPtr<T>& ptr) {
-        return Hash<T>::hash(*ptr.value);
-    }
-};
-
-template <>
-struct Hash<uint32_t> {
-    static uint64_t hash(const uint32_t& val) {
-        return val;
-    }
-};
-
-template <>
-struct Hash<size_t> {
-    static uint64_t hash(const size_t& val) {
-        return val;
-    }
-};
-
-template <typename T>
-bool operator ==(const HashPtr<T>& lhs, const HashPtr<T>& rhs);
-
-#define TABLE_FOREACH(tab, key, value, code) do { \
-    for (size_t _tab_i = 0; _tab_i < (tab).capacity; _tab_i++) {\
-    if (COMT_TAB_IS_FREE((tab).meta[_tab_i])) continue; \
-    auto key = (tab).keys[_tab_i]; \
-    auto value = (tab).values[_tab_i]; \
-    code; \
-    }\
-    } while (0)
-
-template <typename K, typename V>
-struct Table {
-    using Meta = uint8_t;
-
-    static Table<K, V> alloc(Allocator* a, size_t capacity = Table::DEFAULT_CAPACITY);
-
-    void put(const K& key, const V& value);
-    bool get(const K& key, V* out);
-    bool has(const K& key);
-
-    static constexpr size_t DEFAULT_CAPACITY = 47;
-
-    inline uint8_t load_percentage() const {
-        return (uint8_t)((double)(count * 100) / (double)capacity);
-    }
-
-    K* keys;
-    V* values;
-    uint8_t* meta;
-    size_t count;
-    size_t capacity;
-    Allocator* allocator;
-};
-
 using Char = uint8_t;
 
 // char predicates
@@ -391,6 +317,98 @@ struct String {
     }
 
     List<Char> data;
+};
+
+#define COMT_TAB_META_OCCUPIED 0x01
+#define COMT_TAB_IS_OCCUPIED(meta) ((meta) & COMT_TAB_META_OCCUPIED)
+#define COMT_TAB_IS_FREE(meta) (!COMT_TAB_IS_OCCUPIED((meta)))
+
+#define COMT_TABLE_GROWTH_FACTOR(x) (((x) + 1) * 3)
+
+namespace hash {
+uint64_t fnv1(StringView);
+};
+
+template <typename T>
+struct Hash {};
+
+template <typename T>
+struct HashPtr {
+    HashPtr(const T* v) : value{v} {}
+    HashPtr(T* v) : value{v} {}
+    const T* value;
+};
+
+// Default hash implementations
+template <typename T>
+struct Hash<HashPtr<T>> {
+    static uint64_t hash(const HashPtr<T>& ptr) {
+        return Hash<T>::hash(*ptr.value);
+    }
+};
+
+template <>
+struct Hash<uint32_t> {
+    static uint64_t hash(const uint32_t& val) {
+        return val;
+    }
+};
+
+template <>
+struct Hash<size_t> {
+    static uint64_t hash(const size_t& val) {
+        return val;
+    }
+};
+
+template <>
+struct Hash<StringView> {
+    static uint64_t hash(StringView sv) {
+        return ::comt::hash::fnv1(sv);
+    }
+};
+
+template <>
+struct Hash<String> {
+    static uint64_t hash(String string) {
+        return ::comt::hash::fnv1(string.view());
+    }
+};
+
+template <typename T>
+bool operator ==(const HashPtr<T>& lhs, const HashPtr<T>& rhs);
+
+#define TABLE_FOREACH(tab, key, value, code) do { \
+    for (size_t _tab_i = 0; _tab_i < (tab).capacity; _tab_i++) {\
+    if (COMT_TAB_IS_FREE((tab).meta[_tab_i])) continue; \
+    auto key = (tab).keys[_tab_i]; \
+    auto value = (tab).values[_tab_i]; \
+    code; \
+    }\
+    } while (0)
+
+template <typename K, typename V>
+struct Table {
+    using Meta = uint8_t;
+
+    static Table<K, V> alloc(Allocator* a, size_t capacity = Table::DEFAULT_CAPACITY);
+
+    void put(const K& key, const V& value);
+    bool get(const K& key, V* out);
+    bool has(const K& key);
+
+    static constexpr size_t DEFAULT_CAPACITY = 47;
+
+    inline uint8_t load_percentage() const {
+        return (uint8_t)((double)(count * 100) / (double)capacity);
+    }
+
+    K* keys;
+    V* values;
+    uint8_t* meta;
+    size_t count;
+    size_t capacity;
+    Allocator* allocator;
 };
 
 #define COMT_SET_GROWTH_FACTOR COMT_TABLE_GROWTH_FACTOR
@@ -1133,6 +1151,25 @@ bool is_digit(Char c) {
 bool is_alpha(Char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
+
+// HASHES IMPLEMENTATION
+namespace hash {
+uint64_t fnv1(StringView sv) {
+    constexpr const uint64_t fnv_offset_basis = 0xCBF29CE484222325;
+    constexpr const uint64_t fnv_prime = 0x100000001B3;
+
+    uint64_t hash = fnv_offset_basis;
+
+    for (size_t i = 0; i < sv.count; ++i) {
+        hash *= fnv_prime;
+
+        uint8_t byte = sv.data[i];
+        hash ^= (uint64_t)byte;
+    }
+
+    return hash;
+}
+};
 
 #endif
 };
