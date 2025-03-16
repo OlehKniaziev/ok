@@ -439,6 +439,8 @@ struct Optional<T*> : public OptionalBase<Optional, T> {
     static const Optional<T> NONE;
 };
 
+static_assert(sizeof(Optional<int*>) == sizeof(int*));
+
 namespace hash {
 uint64_t fnv1(StringView);
 };
