@@ -345,8 +345,33 @@ struct String {
     List<Char> data;
 };
 
+template <template <typename> class Self, typename T>
+struct OptionalBase {
+    const T& or_else(const T& other) const {
+        auto* self = cast();
+
+        if (self->has_value()) return self->get_unchecked();
+        return other;
+    }
+
+    T& or_else(T& other) {
+        auto* self = cast();
+
+        if (self->has_value(this)) return self->get_unchecked();
+        return other;
+    }
+
+    Self<T>* cast() {
+        return static_cast<Self<T>*>(this);
+    }
+
+    const Self<T>* cast() const {
+        return static_cast<const Self<T>*>(this);
+    }
+};
+
 template <typename T>
-struct Optional {
+struct Optional : public OptionalBase<Optional, T> {
     Optional() : _has_value{false} {}
 
     Optional(T value) : _has_value{true}, value{value} {}
@@ -355,10 +380,24 @@ struct Optional {
         return _has_value;
     }
 
-    inline T& get() {
-        COMT_ASSERT(has_value());
+    inline T& get_unchecked() {
         return value;
     }
+
+    inline T& get() {
+        COMT_ASSERT(has_value());
+        return get_unchecked();
+    }
+
+    inline const T& get_unchecked() const {
+        return value;
+    }
+
+    inline const T& get() const {
+        COMT_ASSERT(has_value());
+        return get_unchecked();
+    }
+
 
     bool _has_value;
     T value;
@@ -367,7 +406,7 @@ struct Optional {
 };
 
 template <typename T>
-struct Optional<T*> {
+struct Optional<T*> : public OptionalBase<Optional, T> {
     Optional() : value{nullptr} {}
 
     Optional(T* value) : value{value} {}
@@ -376,10 +415,24 @@ struct Optional<T*> {
         return value != nullptr;
     }
 
-    inline T& get() {
-        COMT_ASSERT(has_value());
+    inline T& get_unchecked() {
         return *value;
     }
+
+    inline T& get() {
+        COMT_ASSERT(has_value());
+        return get_unchecked();
+    }
+
+    inline const T& get_unchecked() const {
+        return *value;
+    }
+
+    inline const T& get() const {
+        COMT_ASSERT(has_value());
+        return get_unchecked();
+    }
+
 
     T* value;
 
