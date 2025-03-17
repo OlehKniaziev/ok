@@ -244,12 +244,10 @@ struct Slice {
     size_t count;
 };
 
-using Char = uint8_t;
-
 // char predicates
-bool is_whitespace(Char);
-bool is_digit(Char);
-bool is_alpha(Char);
+bool is_whitespace(char);
+bool is_digit(char);
+bool is_alpha(char);
 
 struct String;
 
@@ -259,7 +257,7 @@ struct String;
 struct StringView {
     String to_string(Allocator* a) const;
 
-    const Char* data;
+    const char* data;
     size_t count;
 };
 
@@ -273,16 +271,17 @@ inline bool operator ==(const StringView lhs, const StringView rhs) {
     return true;
 }
 
-StringView operator ""_sv(const char*, size_t);
+constexpr StringView operator ""_sv(const char* cstr, size_t len) {
+    return StringView{cstr, len};
+}
 
 struct String {
-    static constexpr Char NULL_CHAR = '\0';
+    static constexpr char NULL_CHAR = '\0';
     static constexpr size_t DEFAULT_CAPACITY = 7;
 
     static String alloc(Allocator* a, size_t capacity = DEFAULT_CAPACITY);
 
-    static String alloc(Allocator* a, const Char* data, size_t data_len);
-    static String alloc(Allocator* a, const Char* data);
+    static String alloc(Allocator* a, const char* data, size_t data_len);
     static String alloc(Allocator* a, const char* data);
 
     static String format(Allocator* a, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
@@ -293,7 +292,6 @@ struct String {
     void format_append(const char*, ...) __attribute__((format(printf, 2, 3)));
 
     inline const char* cstr() const {
-        static_assert(sizeof(Char) == sizeof(char));
         return reinterpret_cast<const char*>(data.items);
     }
 
@@ -312,7 +310,7 @@ struct String {
         return view(0, count());
     }
 
-    inline void push(Char character) {
+    inline void push(char character) {
         data.push(NULL_CHAR);
         data[data.count - 2] = character;
     }
@@ -330,19 +328,19 @@ struct String {
         return data.count - 1;
     }
 
-    inline Char& operator [](size_t idx) {
+    inline char& operator [](size_t idx) {
         COMT_ASSERT(idx < count());
 
         return data.items[idx];
     }
 
-    inline const Char& operator [](size_t idx) const {
+    inline const char& operator [](size_t idx) const {
         COMT_ASSERT(idx < count());
 
         return data.items[idx];
     }
 
-    List<Char> data;
+    List<char> data;
 };
 
 template <template <typename> class Self, typename T>
@@ -974,32 +972,23 @@ void* ArenaAllocator::raw_resize(void* old_ptr, size_t old_size, size_t new_size
 
 String String::alloc(Allocator* a, size_t capacity) {
     String s;
-    s.data = List<Char>::alloc(a, capacity + 1);
+    s.data = List<char>::alloc(a, capacity + 1);
     s.data.push(NULL_CHAR);
 
     return s;
 }
 
-String String::alloc(Allocator* a, const Char* data, size_t data_len) {
+String String::alloc(Allocator* a, const char* data, size_t data_len) {
     auto s = String::alloc(a, data_len);
 
-    for (size_t i = 0; i < data_len; i++) s.push((Char)data[i]);
+    for (size_t i = 0; i < data_len; i++) s.push((char)data[i]);
 
     return s;
 }
 
-String String::alloc(Allocator* a, const Char* data) {
-    static_assert(sizeof(Char) == sizeof(char));
-
+String String::alloc(Allocator* a, const char* data) {
     size_t data_len = strlen((const char*)data);
     return String::alloc(a, data, data_len);
-}
-
-String String::alloc(Allocator* a, const char* data) {
-    static_assert(sizeof(Char) == sizeof(char));
-
-    size_t data_len = strlen(data);
-    return String::alloc(a, (const Char*)data, data_len);
 }
 
 String String::format(Allocator* a, const char* fmt, ...) {
@@ -1066,12 +1055,6 @@ void String::format_append(const char* fmt, ...) {
 }
 
 // STRING VIEW IMPLEMENTATION
-StringView operator ""_sv(const char* cstr, size_t len) {
-    static_assert(sizeof(Char) == sizeof(char));
-
-    return StringView{(const Char*)cstr, len};
-}
-
 String StringView::to_string(Allocator* a) const {
     return String::alloc(a, data, count);
 }
@@ -1216,7 +1199,7 @@ void eprintln(String string) {
     ::fprintf(stderr, "%s\n", string.cstr());
 }
 
-bool is_whitespace(Char c) {
+bool is_whitespace(char c) {
     return c == '\t' ||
            c == '\n' ||
            c == '\v' ||
@@ -1224,11 +1207,11 @@ bool is_whitespace(Char c) {
            c == ' ';
 }
 
-bool is_digit(Char c) {
+bool is_digit(char c) {
     return c >= '0' && c <= '9';
 }
 
-bool is_alpha(Char c) {
+bool is_alpha(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 
