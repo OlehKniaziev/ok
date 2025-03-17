@@ -29,5 +29,5 @@ Non-goals include:
 - [ ] Network API
 - [ ] Subprocess API
 - [x] Linux support
-- [ ] Windows support
+- [x] Windows support
 - [ ] MAC support

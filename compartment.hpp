@@ -36,23 +36,23 @@
 #ifndef COMT_ASSERT
 #define COMT_ASSERT(x) do { \
     if (!(x)) { \
-    fprintf(stderr, "%s:%d: Assertion failed: %s\n", __FILE__, __LINE__, #x); \
-    __builtin_trap(); \
+        fprintf(stderr, "%s:%d: Assertion failed: %s\n", __FILE__, __LINE__, #x); \
+        abort(); \
     } \
-    } while(0)
+} while(0)
 #endif // COMT_ASSERT
 
 #define COMT_TODO() do { \
     fprintf(stderr, "%s:%d: TODO: Not implemented\n", __FILE__, __LINE__); \
 exit(1); \
-    } while (0)
+} while (0)
 
 #define COMT_UNUSED(arg) (void)(arg);
 
 #define COMT_UNREACHABLE() do { \
     fprintf(stderr, "%s:%d: Encountered unreachable code\n", __FILE__, __LINE__); \
-    __builtin_trap(); \
-    } while (0)
+    abort(); \
+} while (0)
 
 namespace comt {
 struct Allocator {
@@ -91,10 +91,6 @@ struct Allocator {
 extern Allocator* temp_allocator;
 extern Allocator* static_allocator;
 
-#ifndef COMT_PAGE_SIZE
-#define COMT_PAGE_SIZE 4096
-#endif // COMT_PAGE_SIZE
-
 #if defined(__unix__) || defined(__unix) || defined(__APPLE__)
 
 #include <sys/mman.h>
@@ -104,11 +100,36 @@ extern Allocator* static_allocator;
 #define COMT_DEALLOC_PAGE(page, size) (munmap((page), (size)))
 #define COMT_ALLOC_SMOL(sz) (sbrk((sz)))
 
+#define COMT_PAGE_SIZE 4096
+#define COMT_PAGE_ALIGN COMT_PAGE_SIZE
+
+#elif defined(_WIN32)
+
+#include <Windows.h>
+#include <memoryapi.h>
+#include <heapapi.h>
+
+#undef max
+#undef min
+
+#define COMT_PAGE_SIZE 4096
+#define COMT_PAGE_ALIGN (64 * 1024)
+
+#define COMT_ALLOC_PAGE(sz) (VirtualAlloc(nullptr, (sz), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE))
+#define COMT_DEALLOC_PAGE(page, size) (VirtualFree((page), 0, MEM_RELEASE))
+#define COMT_ALLOC_SMOL(sz) (HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, (sz)))
+
 #else
 
-#error "Only UNIX-like systems are supported"
+#error "Only UNIX-like systems and Windows are supported"
 
-#endif // unix check
+#endif // platform check
+
+#ifdef __GNUC__
+#define ATTRIBUTE_PRINTF(fmt, args) __attribute__((format(printf, fmt, args)))
+#else
+#define ATTRIBUTE_PRINTF(fmt, args)
+#endif // __GNUC__
 
 struct FixedBufferAllocator : public Allocator {
     void* raw_alloc(size_t size) override;
@@ -284,12 +305,12 @@ struct String {
     static String alloc(Allocator* a, const char* data, size_t data_len);
     static String alloc(Allocator* a, const char* data);
 
-    static String format(Allocator* a, const char* fmt, ...) __attribute__((format(printf, 2, 3)));
+    static String format(Allocator* a, const char* fmt, ...) ATTRIBUTE_PRINTF(2, 3);
 
     void append(StringView);
     void append(String);
 
-    void format_append(const char*, ...) __attribute__((format(printf, 2, 3)));
+    void format_append(const char*, ...) ATTRIBUTE_PRINTF(2, 3);
 
     inline const char* cstr() const {
         return reinterpret_cast<const char*>(data.items);
@@ -847,7 +868,7 @@ void eprintln(const char*);
 void eprintln(String);
 void eprintln(StringView);
 
-[[noreturn]] void panic(const char*, ...) __attribute__((format(printf, 1, 2)));
+[[noreturn]] void panic(const char*, ...) ATTRIBUTE_PRINTF(1, 2);
 
 String to_string(Allocator*, int32_t);
 String to_string(Allocator*, uint32_t);
@@ -876,7 +897,7 @@ void* FixedBufferAllocator::raw_alloc(size_t size) {
 
     if (buffer == nullptr) {
         buffer_size = max(size, COMT_PAGE_SIZE * FixedBufferAllocator::DEFAULT_PAGE_COUNT);
-        buffer_size = align_to(buffer_size, COMT_PAGE_SIZE);
+        buffer_size = align_to(buffer_size, COMT_PAGE_ALIGN);
         buffer = COMT_ALLOC_PAGE(buffer_size);
         buffer_off = 0;
     }
@@ -900,7 +921,7 @@ void FixedBufferAllocator::raw_dealloc(void* ptr, size_t size) {
 ArenaAllocator::Region* ArenaAllocator::alloc_region(size_t region_size) {
     using Region = ArenaAllocator::Region;
 
-    region_size = align_to(region_size, COMT_PAGE_SIZE);
+    region_size = align_to(region_size, COMT_PAGE_ALIGN);
 
     Region* current_region = region_pool;
 
@@ -933,27 +954,27 @@ ArenaAllocator::Region* ArenaAllocator::alloc_region(size_t region_size) {
 }
 
 void* ArenaAllocator::raw_alloc(size_t size) {
-    ArenaAllocator::Region* head = this->head;
+    ArenaAllocator::Region* region_head = this->head;
 
     size = align_to(size, sizeof(void*));
 
-    while (head) {
-        if (head->size - head->off >= size) {
-            void* ptr = (void*)((uint8_t*)head->data + head->off);
-            head->off += size;
+    while (region_head) {
+        if (region_head->size - region_head->off >= size) {
+            void* ptr = (void*)((uint8_t*)region_head->data + region_head->off);
+            region_head->off += size;
             return ptr;
         }
 
-        head = head->next;
+        region_head = region_head->next;
     }
 
-    size_t region_size = align_to(size, COMT_PAGE_SIZE);
-    head = alloc_region(region_size);
-    head->next = this->head;
-    this->head = head;
+    size_t region_size = align_to(size, COMT_PAGE_ALIGN);
+    region_head = alloc_region(region_size);
+    region_head->next = this->head;
+    this->head = region_head;
 
-    void* ptr = (void*)((uint8_t*)head->data + head->off);
-    head->off += size;
+    void* ptr = (void*)((uint8_t*)region_head->data + region_head->off);
+    region_head->off += size;
     return ptr;
 }
 
@@ -1101,11 +1122,11 @@ String to_string(Allocator* allocator, int32_t input_value) {
 
     if (input_value < 0) {
         s.push('-');
-        value = -value;
+        value = (uint32_t)-input_value;
         idx = 1;
     }
 
-    int32_t value_copy = value;
+    uint32_t value_copy = value;
 
     while (value_copy /= 10) idx++;
 
@@ -1153,11 +1174,11 @@ String to_string(Allocator* allocator, int64_t input_value) {
 
     if (input_value < 0) {
         s.push('-');
-        value = -value;
+        value = -input_value;
         idx = 1;
     }
 
-    int64_t value_copy = value;
+    uint64_t value_copy = value;
 
     while (value_copy /= 10) idx++;
 
