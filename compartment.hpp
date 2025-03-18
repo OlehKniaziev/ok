@@ -327,6 +327,8 @@ struct String {
 
     void format_append(const char*, ...) ATTRIBUTE_PRINTF(2, 3);
 
+    bool starts_with(StringView);
+
     inline const char* cstr() const {
         return reinterpret_cast<const char*>(data.items);
     }
@@ -1131,6 +1133,16 @@ void String::format_append(const char* fmt, ...) {
     va_end(sprintf_args);
 
     data.count += required_buf_size;
+}
+
+bool String::starts_with(StringView prefix) {
+    if (count() < prefix.count) return false;
+
+    for (size_t i = 0; i < prefix.count; i++) {
+        if (data.items[i] != prefix.data[i]) return false;
+    }
+
+    return true;
 }
 
 // STRING VIEW IMPLEMENTATION
