@@ -14,5 +14,9 @@ int main() {
     auto read_err = file.read_full(temp_allocator, &buffer);
     COMT_ASSERT(!read_err.has_value());
 
+    String s = String::from(buffer);
+
+    COMT_ASSERT(s.starts_with("#define COMPARTMENT_IMPLEMENTATION"_sv));
+
     return 0;
 }

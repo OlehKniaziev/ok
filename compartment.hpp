@@ -1180,11 +1180,10 @@ Optional<File::OpenError> File::open(File* out, const char* path) {
 }
 
 size_t File::size() const {
-    off_t seek_res = lseek(fd, 0, SEEK_SET);
+    off_t seek_res = lseek(fd, 0, SEEK_END);
     COMT_ASSERT(seek_res != (off_t)-1);
 
-    seek_res = lseek(fd, 0, SEEK_END);
-    COMT_ASSERT(seek_res != (off_t)-1);
+    COMT_ASSERT(lseek(fd, 0, SEEK_SET) != (off_t)-1);
 
     return seek_res;
 }
@@ -1202,6 +1201,8 @@ Optional<File::ReadError> File::read_full(Allocator* a, List<uint8_t>* out) {
         default:     COMT_UNREACHABLE();
         }
     }
+
+    out->count = r;
 
     return {};
 }
