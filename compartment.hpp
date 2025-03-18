@@ -224,6 +224,16 @@ struct List {
     Slice<T> slice(size_t start) const;
     Slice<T> slice() const;
 
+    template <typename Dest>
+    inline List<Dest> cast() {
+        List<Dest> list;
+        list.allocator = allocator;
+        list.items = (Dest*)items;
+        list.count = count;
+        list.capacity = capacity;
+        return list;
+    }
+
     inline T& operator [](size_t idx) {
         COMT_ASSERT(idx < count);
 
@@ -306,6 +316,9 @@ struct String {
 
     static String alloc(Allocator* a, const char* data, size_t data_len);
     static String alloc(Allocator* a, const char* data);
+
+    static String from(List<uint8_t>);
+    static String from(List<char>);
 
     static String format(Allocator* a, const char* fmt, ...) ATTRIBUTE_PRINTF(2, 3);
 
@@ -1043,6 +1056,18 @@ String String::alloc(Allocator* a, const char* data, size_t data_len) {
 String String::alloc(Allocator* a, const char* data) {
     size_t data_len = strlen((const char*)data);
     return String::alloc(a, data, data_len);
+}
+
+String String::from(List<char> chars) {
+    String s;
+    s.data = chars;
+    s.data.push('\0');
+    return s;
+}
+
+String String::from(List<uint8_t> bytes) {
+    List<char> chars = bytes.cast<char>();
+    return String::from(chars);
 }
 
 String String::format(Allocator* a, const char* fmt, ...) {
