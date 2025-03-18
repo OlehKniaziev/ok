@@ -23,7 +23,7 @@ int main() {
 
     a.buffer_off = 0;
 
-    size_t bytes_count = FixedBufferAllocator::DEFAULT_PAGE_COUNT * COMT_PAGE_SIZE;
+    size_t bytes_count = align_to(FixedBufferAllocator::DEFAULT_PAGE_COUNT * COMT_PAGE_SIZE, COMT_PAGE_ALIGN);
 
     uint8_t* bytes = a.alloc<uint8_t>(bytes_count);
     COMT_ASSERT(bytes != nullptr);

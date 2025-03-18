@@ -107,7 +107,7 @@ extern Allocator* static_allocator;
 
 #elif defined(_WIN32)
 
-#include <Windows.h>
+#include <windows.h>
 #include <memoryapi.h>
 #include <heapapi.h>
 
