@@ -32,6 +32,8 @@
 #include <cstring>
 #include <cstdint>
 #include <cstdarg>
+#include <cerrno>
+#include <fcntl.h>
 
 #ifndef COMT_ASSERT
 #define COMT_ASSERT(x) do { \
@@ -837,6 +839,37 @@ bool Set<T>::has(const T& elem) const {
     return false;
 }
 
+// filesystem API
+struct File {
+    enum class OpenError {
+        ACCESS_DENIED,
+        INVALID_PATH,
+        IS_DIRECTORY,
+        TOO_MANY_SYMLINKS,
+        PROCESS_OPEN_FILES_LIMIT_REACHED,
+        SYSTEM_OPEN_FILES_LIMIT_REACHED,
+        PATH_TOO_LONG,
+        KERNEL_OUT_OF_MEMORY,
+        OUT_OF_SPACE,
+        IS_SOCKET,
+        FILE_TOO_BIG,
+        READONLY_FILE,
+    };
+
+    enum class ReadError {
+        IO_ERROR,
+    };
+
+    static Optional<OpenError> open(File* out, const char* path);
+
+    Optional<ReadError> read_full(Allocator* a, List<uint8_t>* out);
+
+    size_t size() const;
+
+    int fd;
+    const char* path;
+};
+
 // procedures
 template <typename T>
 const T& max(const T& a) {
@@ -1080,6 +1113,63 @@ String StringView::to_string(Allocator* a) const {
     return String::alloc(a, data, count);
 }
 
+// FILESYSTEM API IMPLEMENTATION
+Optional<File::OpenError> File::open(File* out, const char* path) {
+    int fd = ::open(path, O_RDWR);
+
+    if (fd < 0) {
+        switch (errno) {
+        case EACCES:       return OpenError::ACCESS_DENIED;
+        case EINVAL:       return OpenError::INVALID_PATH;
+        case EISDIR:       return OpenError::IS_DIRECTORY;
+        case ELOOP:        return OpenError::TOO_MANY_SYMLINKS;
+        case EMFILE:       return OpenError::PROCESS_OPEN_FILES_LIMIT_REACHED;
+        case ENFILE:       return OpenError::SYSTEM_OPEN_FILES_LIMIT_REACHED;
+        case ENAMETOOLONG: return OpenError::PATH_TOO_LONG;
+        case ENOMEM:       return OpenError::KERNEL_OUT_OF_MEMORY;
+        case ENOSPC:       return OpenError::OUT_OF_SPACE;
+        case ENXIO:        return OpenError::IS_SOCKET;
+        case EOVERFLOW:    return OpenError::FILE_TOO_BIG;
+        case EROFS:        return OpenError::READONLY_FILE;
+        case EFAULT:       panic("Parameter 'path' is not mapped to the current process");
+        default:           COMT_UNREACHABLE();
+        }
+    }
+
+    out->fd = fd;
+    out->path = path;
+
+    return {};
+}
+
+size_t File::size() const {
+    off_t seek_res = lseek(fd, 0, SEEK_SET);
+    COMT_ASSERT(seek_res != (off_t)-1);
+
+    seek_res = lseek(fd, 0, SEEK_END);
+    COMT_ASSERT(seek_res != (off_t)-1);
+
+    return seek_res;
+}
+
+Optional<File::ReadError> File::read_full(Allocator* a, List<uint8_t>* out) {
+    size_t sz = size();
+    *out = List<uint8_t>::alloc(a, sz);
+
+    auto r = read(fd, out->items, sz);
+
+    if (r < 0) {
+        switch (errno) {
+        case EIO:    return ReadError::IO_ERROR;
+        case EFAULT: panic("The buffer is mapped outside the current process");
+        default:     COMT_UNREACHABLE();
+        }
+    }
+
+    return {};
+}
+
+// PROCEDURES IMPLEMENTATION
 void panic(const char* fmt, ...) {
     va_list fmt_args;
 
