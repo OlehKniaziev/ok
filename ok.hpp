@@ -312,6 +312,11 @@ struct String;
 #define OK_SV_ARG(sv) (int)(sv).count, reinterpret_cast<const char*>((sv).data)
 
 struct StringView {
+    StringView() = default;
+
+    constexpr StringView(const char* data, size_t count) : data{data}, count{count} {}
+    explicit constexpr StringView(const char* cstr) : StringView{cstr, strlen(cstr)} {}
+
     String to_string(Allocator* a) const;
 
     const char* data;
