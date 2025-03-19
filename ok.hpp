@@ -24,8 +24,8 @@
     EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef COMPARTMENT_H_
-#define COMPARTMENT_H_
+#ifndef OK_H_
+#define OK_H_
 
 #include <cstdlib>
 #include <cstdio>
@@ -35,38 +35,38 @@
 #include <cerrno>
 #include <fcntl.h>
 
-#ifndef COMT_ASSERT
-#define COMT_ASSERT(x) do { \
+#ifndef OK_ASSERT
+#define OK_ASSERT(x) do { \
     if (!(x)) { \
         fprintf(stderr, "%s:%d: Assertion failed: %s\n", __FILE__, __LINE__, #x); \
         abort(); \
     } \
 } while(0)
-#endif // COMT_ASSERT
+#endif // OK_ASSERT
 
-#define COMT_TODO() do { \
+#define OK_TODO() do { \
     fprintf(stderr, "%s:%d: TODO: Not implemented\n", __FILE__, __LINE__); \
     exit(1); \
 } while (0)
 
-#define COMT_UNUSED(arg) (void)(arg);
+#define OK_UNUSED(arg) (void)(arg);
 
-#define COMT_UNREACHABLE() do { \
+#define OK_UNREACHABLE() do { \
     fprintf(stderr, "%s:%d: Encountered unreachable code\n", __FILE__, __LINE__); \
     abort(); \
 } while (0)
 
-#define COMT_PANIC(msg) do { \
+#define OK_PANIC(msg) do { \
     fprintf(stderr, "%s:%d: PROGRAM PANICKED: %s\n", __FILE__, __LINE__, (msg)); \
     abort(); \
 } while (0)
 
-#define COMT_PANIC_FMT(fmt, ...) do { \
+#define OK_PANIC_FMT(fmt, ...) do { \
     fprintf(stderr, "%s:%d: PROGRAM PANICKED: " fmt "\n", __FILE__, __LINE__, __VA_ARGS__); \
     abort(); \
 } while (0)
 
-namespace comt {
+namespace ok {
 struct Allocator {
     // required methods
     virtual void* raw_alloc(size_t size) = 0;
@@ -108,12 +108,12 @@ extern Allocator* static_allocator;
 #include <sys/mman.h>
 #include <unistd.h>
 
-#define COMT_ALLOC_PAGE(sz) (mmap(NULL, (sz), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0))
-#define COMT_DEALLOC_PAGE(page, size) (munmap((page), (size)))
-#define COMT_ALLOC_SMOL(sz) (sbrk((sz)))
+#define OK_ALLOC_PAGE(sz) (mmap(NULL, (sz), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0))
+#define OK_DEALLOC_PAGE(page, size) (munmap((page), (size)))
+#define OK_ALLOC_SMOL(sz) (sbrk((sz)))
 
-#define COMT_PAGE_SIZE 4096
-#define COMT_PAGE_ALIGN COMT_PAGE_SIZE
+#define OK_PAGE_SIZE 4096
+#define OK_PAGE_ALIGN OK_PAGE_SIZE
 
 #elif defined(_WIN32)
 
@@ -124,12 +124,12 @@ extern Allocator* static_allocator;
 #undef max
 #undef min
 
-#define COMT_PAGE_SIZE 4096
-#define COMT_PAGE_ALIGN (64 * 1024)
+#define OK_PAGE_SIZE 4096
+#define OK_PAGE_ALIGN (64 * 1024)
 
-#define COMT_ALLOC_PAGE(sz) (VirtualAlloc(nullptr, (sz), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE))
-#define COMT_DEALLOC_PAGE(page, size) (VirtualFree((page), 0, MEM_RELEASE))
-#define COMT_ALLOC_SMOL(sz) (HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, (sz)))
+#define OK_ALLOC_PAGE(sz) (VirtualAlloc(nullptr, (sz), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE))
+#define OK_DEALLOC_PAGE(page, size) (VirtualFree((page), 0, MEM_RELEASE))
+#define OK_ALLOC_SMOL(sz) (HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, (sz)))
 
 #else
 
@@ -161,7 +161,7 @@ static inline uintptr_t align_to(uintptr_t size, uintptr_t align) {
 struct ArenaAllocator : public Allocator {
     struct Region {
         size_t avail() const {
-            COMT_ASSERT(off <= size);
+            OK_ASSERT(off <= size);
             return size - off;
         }
 
@@ -199,7 +199,7 @@ struct ArenaAllocator : public Allocator {
     }
 
     inline void free() {
-        for (Region* r = head; r != nullptr; r = r->next) COMT_DEALLOC_PAGE(head->data, head->size);
+        for (Region* r = head; r != nullptr; r = r->next) OK_DEALLOC_PAGE(head->data, head->size);
     }
 
     Region* head;
@@ -207,7 +207,7 @@ struct ArenaAllocator : public Allocator {
 };
 
 // templates
-#define COMT_LIST_GROW_FACTOR(x) ((((x) + 1) * 3) >> 1)
+#define OK_LIST_GROW_FACTOR(x) ((((x) + 1) * 3) >> 1)
 
 template <typename T>
 struct Slice;
@@ -253,13 +253,13 @@ struct List {
     }
 
     inline T& operator [](size_t idx) {
-        COMT_ASSERT(idx < count);
+        OK_ASSERT(idx < count);
 
         return items[idx];
     }
 
     inline const T& operator [](size_t idx) const {
-        COMT_ASSERT(idx < count);
+        OK_ASSERT(idx < count);
 
         return items[idx];
     }
@@ -273,7 +273,7 @@ struct List {
 template <typename T>
 struct Slice {
     inline Slice<T> slice(size_t start, size_t end) const {
-        COMT_ASSERT(end >= start);
+        OK_ASSERT(end >= start);
         return Slice<T>{items + start, end - start};
     }
 
@@ -286,7 +286,7 @@ struct Slice {
     }
 
     inline const T& operator [](size_t idx) const {
-        COMT_ASSERT(idx < count);
+        OK_ASSERT(idx < count);
 
         return items[idx];
     }
@@ -302,8 +302,8 @@ bool is_alpha(char);
 
 struct String;
 
-#define COMT_SV_FMT "%.*s"
-#define COMT_SV_ARG(sv) (int)(sv).count, reinterpret_cast<const char*>((sv).data)
+#define OK_SV_FMT "%.*s"
+#define OK_SV_ARG(sv) (int)(sv).count, reinterpret_cast<const char*>((sv).data)
 
 struct StringView {
     String to_string(Allocator* a) const;
@@ -352,8 +352,8 @@ struct String {
     }
 
     inline StringView view(size_t start, size_t end) const {
-        COMT_ASSERT(start < count());
-        COMT_ASSERT(end >= start);
+        OK_ASSERT(start < count());
+        OK_ASSERT(end >= start);
 
         return StringView{data.items + start, end - start};
     }
@@ -386,7 +386,7 @@ struct String {
     }
 
     inline size_t count() const {
-        COMT_ASSERT(data.count != 0);
+        OK_ASSERT(data.count != 0);
         return data.count - 1;
     }
 
@@ -401,13 +401,13 @@ struct String {
     }
 
     inline char& operator [](size_t idx) {
-        COMT_ASSERT(idx < count());
+        OK_ASSERT(idx < count());
 
         return data.items[idx];
     }
 
     inline const char& operator [](size_t idx) const {
-        COMT_ASSERT(idx < count());
+        OK_ASSERT(idx < count());
 
         return data.items[idx];
     }
@@ -455,7 +455,7 @@ struct Optional : public OptionalBase<Optional, T> {
     }
 
     inline T& get() {
-        COMT_ASSERT(has_value());
+        OK_ASSERT(has_value());
         return get_unchecked();
     }
 
@@ -464,7 +464,7 @@ struct Optional : public OptionalBase<Optional, T> {
     }
 
     inline const T& get() const {
-        COMT_ASSERT(has_value());
+        OK_ASSERT(has_value());
         return get_unchecked();
     }
 
@@ -490,7 +490,7 @@ struct Optional<T*> : public OptionalBase<Optional, T> {
     }
 
     inline T& get() {
-        COMT_ASSERT(has_value());
+        OK_ASSERT(has_value());
         return get_unchecked();
     }
 
@@ -499,7 +499,7 @@ struct Optional<T*> : public OptionalBase<Optional, T> {
     }
 
     inline const T& get() const {
-        COMT_ASSERT(has_value());
+        OK_ASSERT(has_value());
         return get_unchecked();
     }
 
@@ -550,29 +550,29 @@ struct Hash<size_t> {
 template <>
 struct Hash<StringView> {
     static uint64_t hash(StringView sv) {
-        return ::comt::hash::fnv1(sv);
+        return ::ok::hash::fnv1(sv);
     }
 };
 
 template <>
 struct Hash<String> {
     static uint64_t hash(String string) {
-        return ::comt::hash::fnv1(string.view());
+        return ::ok::hash::fnv1(string.view());
     }
 };
 
 template <typename T>
 bool operator ==(const HashPtr<T>& lhs, const HashPtr<T>& rhs);
 
-#define COMT_TAB_META_OCCUPIED 0x01
-#define COMT_TAB_IS_OCCUPIED(meta) ((meta) & COMT_TAB_META_OCCUPIED)
-#define COMT_TAB_IS_FREE(meta) (!COMT_TAB_IS_OCCUPIED((meta)))
+#define OK_TAB_META_OCCUPIED 0x01
+#define OK_TAB_IS_OCCUPIED(meta) ((meta) & OK_TAB_META_OCCUPIED)
+#define OK_TAB_IS_FREE(meta) (!OK_TAB_IS_OCCUPIED((meta)))
 
-#define COMT_TABLE_GROWTH_FACTOR(x) (((x) + 1) * 3)
+#define OK_TABLE_GROWTH_FACTOR(x) (((x) + 1) * 3)
 
-#define COMT_TABLE_FOREACH(tab, key, value, code) do { \
+#define OK_TABLE_FOREACH(tab, key, value, code) do { \
     for (size_t _tab_i = 0; _tab_i < (tab).capacity; _tab_i++) {\
-    if (COMT_TAB_IS_FREE((tab).meta[_tab_i])) continue; \
+    if (OK_TAB_IS_FREE((tab).meta[_tab_i])) continue; \
     auto key = (tab).keys[_tab_i]; \
     auto value = (tab).values[_tab_i]; \
     code; \
@@ -603,7 +603,7 @@ struct Table {
     Allocator* allocator;
 };
 
-#define COMT_SET_GROWTH_FACTOR COMT_TABLE_GROWTH_FACTOR
+#define OK_SET_GROWTH_FACTOR OK_TABLE_GROWTH_FACTOR
 
 template <typename T>
 struct Set {
@@ -655,7 +655,7 @@ List<T> List<T>::alloc(Allocator* a, size_t cap) {
 template <typename T>
 void List<T>::push(const T& item) {
     if (count >= capacity) {
-        size_t new_capacity = COMT_LIST_GROW_FACTOR(capacity);
+        size_t new_capacity = OK_LIST_GROW_FACTOR(capacity);
         items = allocator->resize<T>(items, capacity, new_capacity);
         capacity = new_capacity;
     }
@@ -665,7 +665,7 @@ void List<T>::push(const T& item) {
 
 template <typename T>
 inline void List<T>::remove_at(size_t idx) {
-    COMT_ASSERT(idx < count);
+    OK_ASSERT(idx < count);
 
     for (size_t i = idx; i < count - 1; i++) {
         items[i] = items[i + 1];
@@ -676,7 +676,7 @@ inline void List<T>::remove_at(size_t idx) {
 
 template <typename T>
 inline List<T> List<T>::copy(Allocator* a, size_t start, size_t end) const {
-    COMT_ASSERT(end >= start);
+    OK_ASSERT(end >= start);
 
     auto res = List<T>::alloc(a, end - start);
     for (size_t i = start; i < end; i++) {
@@ -729,7 +729,7 @@ inline size_t List<T>::find_index(F pred) {
 
 template <typename T>
 Slice<T> List<T>::slice(size_t start, size_t end) const {
-    COMT_ASSERT(end >= start);
+    OK_ASSERT(end >= start);
     return Slice{items + start, end - start};
 }
 
@@ -761,10 +761,10 @@ Table<K, V> Table<K, V>::alloc(Allocator* a, size_t capacity) {
 template <typename K, typename V>
 void Table<K, V>::put(const K& key, const V& value) {
     if (load_percentage() >= 70) {
-        auto new_table = Table<K, V>::alloc(allocator, COMT_TABLE_GROWTH_FACTOR(capacity));
+        auto new_table = Table<K, V>::alloc(allocator, OK_TABLE_GROWTH_FACTOR(capacity));
 
         for (size_t i = 0; i < capacity; i++) {
-            if (COMT_TAB_IS_OCCUPIED(meta[i])) {
+            if (OK_TAB_IS_OCCUPIED(meta[i])) {
                 new_table.put(keys[i], values[i]);
             }
         }
@@ -775,8 +775,8 @@ void Table<K, V>::put(const K& key, const V& value) {
     uint64_t idx = Hash<K>::hash(key) % capacity;
 
     while (true) {
-        if (COMT_TAB_IS_FREE(meta[idx])) {
-            meta[idx] |= COMT_TAB_META_OCCUPIED;
+        if (OK_TAB_IS_FREE(meta[idx])) {
+            meta[idx] |= OK_TAB_META_OCCUPIED;
             values[idx] = value;
             keys[idx] = key;
             count++;
@@ -799,7 +799,7 @@ Optional<V> Table<K, V>::get(const K& key) {
     uint64_t initial_idx = idx;
 
     do {
-        if (COMT_TAB_IS_OCCUPIED(meta[idx]) && keys[idx] == key) {
+        if (OK_TAB_IS_OCCUPIED(meta[idx]) && keys[idx] == key) {
             return values[idx];
         }
 
@@ -815,7 +815,7 @@ bool Table<K, V>::has(const K& key) {
     uint64_t initial_idx = idx;
 
     do {
-        if (COMT_TAB_IS_OCCUPIED(meta[idx]) && keys[idx] == key) {
+        if (OK_TAB_IS_OCCUPIED(meta[idx]) && keys[idx] == key) {
             return true;
         }
 
@@ -840,10 +840,10 @@ Set<T> Set<T>::alloc(Allocator* a, size_t capacity) {
 template <typename T>
 void Set<T>::put(const T& elem) {
     if (load_percentage() >= 70) {
-        auto new_set = Set<T>::alloc(allocator, COMT_SET_GROWTH_FACTOR(capacity));
+        auto new_set = Set<T>::alloc(allocator, OK_SET_GROWTH_FACTOR(capacity));
 
         for (size_t i = 0; i < capacity; i++) {
-            if (COMT_TAB_IS_FREE(meta[i])) {
+            if (OK_TAB_IS_FREE(meta[i])) {
                 continue;
             }
 
@@ -856,8 +856,8 @@ void Set<T>::put(const T& elem) {
     uint64_t hash = Hash<T>::hash(elem);
 
     while (true) {
-        if (COMT_TAB_IS_FREE(meta[hash])) {
-            meta[hash] |= COMT_TAB_META_OCCUPIED;
+        if (OK_TAB_IS_FREE(meta[hash])) {
+            meta[hash] |= OK_TAB_META_OCCUPIED;
             values[hash] = elem;
             count++;
             return;
@@ -878,7 +878,7 @@ bool Set<T>::has(const T& elem) const {
     uint64_t idx = hash;
 
     do {
-        if (COMT_TAB_IS_OCCUPIED(meta[idx]) && values[idx] == elem) {
+        if (OK_TAB_IS_OCCUPIED(meta[idx]) && values[idx] == elem) {
             return true;
         }
 
@@ -955,7 +955,7 @@ String to_string(Allocator*, uint32_t);
 String to_string(Allocator*, int64_t);
 String to_string(Allocator*, uint64_t);
 
-#ifdef COMPARTMENT_IMPLEMENTATION
+#ifdef OK_IMPLEMENTATION
 
 FixedBufferAllocator _temp_allocator_impl{};
 Allocator* temp_allocator = &_temp_allocator_impl;
@@ -964,8 +964,8 @@ ArenaAllocator _static_allocator_impl{};
 Allocator* static_allocator = &_static_allocator_impl;
 
 static void _init_region(ArenaAllocator::Region* region, size_t size) {
-    region->data = (uint8_t*)COMT_ALLOC_PAGE(size);
-    COMT_ASSERT(region->data != (void*)-1);
+    region->data = (uint8_t*)OK_ALLOC_PAGE(size);
+    OK_ASSERT(region->data != (void*)-1);
     region->size = size;
     region->off = 0;
     region->next = nullptr;
@@ -976,9 +976,9 @@ void* FixedBufferAllocator::raw_alloc(size_t size) {
     size = align_to(size, sizeof(void*));
 
     if (buffer == nullptr) {
-        buffer_size = max(size, COMT_PAGE_SIZE * FixedBufferAllocator::DEFAULT_PAGE_COUNT);
-        buffer_size = align_to(buffer_size, COMT_PAGE_ALIGN);
-        buffer = COMT_ALLOC_PAGE(buffer_size);
+        buffer_size = max(size, OK_PAGE_SIZE * FixedBufferAllocator::DEFAULT_PAGE_COUNT);
+        buffer_size = align_to(buffer_size, OK_PAGE_ALIGN);
+        buffer = OK_ALLOC_PAGE(buffer_size);
         buffer_off = 0;
     }
 
@@ -1001,7 +1001,7 @@ void FixedBufferAllocator::raw_dealloc(void* ptr, size_t size) {
 ArenaAllocator::Region* ArenaAllocator::alloc_region(size_t region_size) {
     using Region = ArenaAllocator::Region;
 
-    region_size = align_to(region_size, COMT_PAGE_ALIGN);
+    region_size = align_to(region_size, OK_PAGE_ALIGN);
 
     Region* current_region = region_pool;
 
@@ -1019,10 +1019,10 @@ ArenaAllocator::Region* ArenaAllocator::alloc_region(size_t region_size) {
         current_region = current_region->next;
     }
 
-    current_region = (Region*)COMT_ALLOC_SMOL(sizeof(Region));
+    current_region = (Region*)OK_ALLOC_SMOL(sizeof(Region));
 
-    current_region->data = COMT_ALLOC_PAGE(COMT_PAGE_SIZE);
-    current_region->size = COMT_PAGE_SIZE;
+    current_region->data = OK_ALLOC_PAGE(OK_PAGE_SIZE);
+    current_region->size = OK_PAGE_SIZE;
     current_region->off = align_to(sizeof(Region), sizeof(void*));
     current_region->next = region_pool;
 
@@ -1048,7 +1048,7 @@ void* ArenaAllocator::raw_alloc(size_t size) {
         region_head = region_head->next;
     }
 
-    size_t region_size = align_to(size, COMT_PAGE_ALIGN);
+    size_t region_size = align_to(size, OK_PAGE_ALIGN);
     region_head = alloc_region(region_size);
     region_head->next = this->head;
     this->head = region_head;
@@ -1059,8 +1059,8 @@ void* ArenaAllocator::raw_alloc(size_t size) {
 }
 
 void ArenaAllocator::raw_dealloc(void* ptr, size_t size) {
-    COMT_UNUSED(ptr);
-    COMT_UNUSED(size);
+    OK_UNUSED(ptr);
+    OK_UNUSED(size);
 }
 
 void* ArenaAllocator::raw_resize(void* old_ptr, size_t old_size, size_t new_size) {
@@ -1112,7 +1112,7 @@ String String::format(Allocator* a, const char* fmt, ...) {
     {
         char* sprintf_buf = nullptr;
         buf_size = vsnprintf(sprintf_buf, 0, fmt, sprintf_args);
-        COMT_ASSERT(buf_size != -1);
+        OK_ASSERT(buf_size != -1);
 
         buf_size += 1;
     }
@@ -1123,7 +1123,7 @@ String String::format(Allocator* a, const char* fmt, ...) {
     va_start(sprintf_args, fmt);
     {
         int bytes_written = vsnprintf((char*)buf.data.items, buf_size, fmt, sprintf_args);
-        COMT_ASSERT(bytes_written != -1);
+        OK_ASSERT(bytes_written != -1);
     }
     va_end(sprintf_args);
 
@@ -1149,7 +1149,7 @@ void String::format_append(const char* fmt, ...) {
     {
         char* sprintf_buf = nullptr;
         required_buf_size = vsnprintf(sprintf_buf, 0, fmt, sprintf_args);
-        COMT_ASSERT(required_buf_size != -1);
+        OK_ASSERT(required_buf_size != -1);
     }
     va_end(sprintf_args);
 
@@ -1160,7 +1160,7 @@ void String::format_append(const char* fmt, ...) {
     {
         char* buf = (char*)data.items + count();
         int bytes_written = vsnprintf(buf, required_buf_size + 1, fmt, sprintf_args);
-        COMT_ASSERT(bytes_written != -1);
+        OK_ASSERT(bytes_written != -1);
     }
     va_end(sprintf_args);
 
@@ -1200,8 +1200,8 @@ Optional<File::OpenError> File::open(File* out, const char* path) {
         case ENXIO:        return OpenError::IS_SOCKET;
         case EOVERFLOW:    return OpenError::FILE_TOO_BIG;
         case EROFS:        return OpenError::READONLY_FILE;
-        case EFAULT:       COMT_PANIC_FMT("Parameter 'path' (%p) is not mapped to the current process", path);
-        default:           COMT_UNREACHABLE();
+        case EFAULT:       OK_PANIC_FMT("Parameter 'path' (%p) is not mapped to the current process", path);
+        default:           OK_UNREACHABLE();
         }
     }
 
@@ -1213,9 +1213,9 @@ Optional<File::OpenError> File::open(File* out, const char* path) {
 
 size_t File::size() const {
     off_t seek_res = lseek(fd, 0, SEEK_END);
-    COMT_ASSERT(seek_res != (off_t)-1);
+    OK_ASSERT(seek_res != (off_t)-1);
 
-    COMT_ASSERT(lseek(fd, 0, SEEK_SET) != (off_t)-1);
+    OK_ASSERT(lseek(fd, 0, SEEK_SET) != (off_t)-1);
 
     return seek_res;
 }
@@ -1229,8 +1229,8 @@ Optional<File::ReadError> File::read_full(Allocator* a, List<uint8_t>* out) {
     if (r < 0) {
         switch (errno) {
         case EIO:    return ReadError::IO_ERROR;
-        case EFAULT: COMT_PANIC_FMT("The buffer (%p) is mapped outside the current process", out->items);
-        default:     COMT_UNREACHABLE();
+        case EFAULT: OK_PANIC_FMT("The buffer (%p) is mapped outside the current process", out->items);
+        default:     OK_UNREACHABLE();
         }
     }
 
@@ -1349,7 +1349,7 @@ void println(const char* msg) {
 }
 
 void println(StringView sv) {
-    ::printf(COMT_SV_FMT "\n", COMT_SV_ARG(sv));
+    ::printf(OK_SV_FMT "\n", OK_SV_ARG(sv));
 }
 
 void println(String string) {
@@ -1361,7 +1361,7 @@ void eprintln(const char* msg) {
 }
 
 void eprintln(StringView sv) {
-    ::fprintf(stderr, COMT_SV_FMT "\n", COMT_SV_ARG(sv));
+    ::fprintf(stderr, OK_SV_FMT "\n", OK_SV_ARG(sv));
 }
 
 void eprintln(String string) {
@@ -1406,4 +1406,4 @@ uint64_t fnv1(StringView sv) {
 #endif
 };
 
-#endif // COMPARTMENT_H_
+#endif // OK_H_

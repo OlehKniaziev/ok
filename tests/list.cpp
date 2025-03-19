@@ -1,7 +1,7 @@
-#define COMPARTMENT_IMPLEMENTATION
-#include "../compartment.hpp"
+#define OK_IMPLEMENTATION
+#include "../ok.hpp"
 
-using namespace comt;
+using namespace ok;
 
 int main() {
     size_t ints_cap = 90;
@@ -12,12 +12,12 @@ int main() {
         ints.push(i);
     }
 
-    COMT_ASSERT(ints.capacity == ints_cap);
-    COMT_ASSERT(ints.count == ints_cap);
+    OK_ASSERT(ints.capacity == ints_cap);
+    OK_ASSERT(ints.count == ints_cap);
 
     ints.push(100);
 
-    COMT_ASSERT(ints.capacity == COMT_LIST_GROW_FACTOR(ints_cap));
+    OK_ASSERT(ints.capacity == OK_LIST_GROW_FACTOR(ints_cap));
 
     return 0;
 }

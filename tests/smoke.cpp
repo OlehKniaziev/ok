@@ -1,5 +1,5 @@
-#define COMPARTMENT_IMPLEMENTATION
-#include "../compartment.hpp"
+#define OK_IMPLEMENTATION
+#include "../ok.hpp"
 
 int main() {
     return 0;

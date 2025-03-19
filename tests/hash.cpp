@@ -1,12 +1,12 @@
-#define COMPARTMENT_IMPLEMENTATION
-#include "../compartment.hpp"
+#define OK_IMPLEMENTATION
+#include "../ok.hpp"
 
-using namespace comt;
+using namespace ok;
 
 int main() {
-    COMT_ASSERT(hash::fnv1(""_sv) == 0xCBF29CE484222325);
-    COMT_ASSERT(hash::fnv1("123"_sv) == 0xD97FFA186C3A60BB);
-    COMT_ASSERT(hash::fnv1("Compartment!"_sv) == 0xCCC956328581F308);
+    OK_ASSERT(hash::fnv1(""_sv) == 0xCBF29CE484222325);
+    OK_ASSERT(hash::fnv1("123"_sv) == 0xD97FFA186C3A60BB);
+    OK_ASSERT(hash::fnv1("Ok!"_sv) == 0xD840C3186B2B5F00);
 
     return 0;
 }

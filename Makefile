@@ -5,7 +5,7 @@ CXXFLAGS += -Wall -Wextra -Werror -pedantic
 
 .PHONY: test smoke-test
 
-%.test.o: %.cpp compartment.hpp
+%.test.o: %.cpp ok.hpp
 	$(CXX) $(CXXFLAGS) -o $@ $<
 	@ echo Running test $@...
 	@ ./$@
@@ -14,7 +14,7 @@ CXXFLAGS += -Wall -Wextra -Werror -pedantic
 test: smoke-test $(TEST_FILES)
 	@ echo All tests passed.
 
-smoke-test: $(SMOKE_TEST) compartment.hpp
+smoke-test: $(SMOKE_TEST) ok.hpp
 	@ $(CXX) $(CXXFLAGS) -o smoke.test.o $<
 	@ rm smoke.test.o
 	@ echo Passed the smoke test

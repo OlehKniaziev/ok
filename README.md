@@ -1,5 +1,5 @@
-# Compartment
-Compartment is a library that is meant to replace common use cases of the C++ standard library.
+# OK
+OK is a library that is meant to replace common use cases of the C++ standard library.
 It provides common features like custom allocators, a string type, and generic containers.
 
 ## Why use it
