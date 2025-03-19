@@ -212,7 +212,15 @@ struct List {
     void extend(List<T> other);
     void remove_at(size_t idx);
 
-    List<T> copy(size_t start, size_t end) const;
+    List<T> copy(Allocator* a, size_t start, size_t end) const;
+
+    inline List<T> copy(Allocator* a, size_t start) const {
+        return copy(a, start, count);
+    }
+
+    inline List<T> copy(Allocator* a) const {
+        return copy(a, 0, count);
+    }
 
     void reserve(size_t new_cap);
 
@@ -346,6 +354,12 @@ struct String {
 
     inline StringView view() const {
         return view(0, count());
+    }
+
+    inline String copy(Allocator* a) {
+        String s;
+        s.data = data.copy(a);
+        return s;
     }
 
     inline void push(char character) {
@@ -641,10 +655,10 @@ inline void List<T>::remove_at(size_t idx) {
 }
 
 template <typename T>
-inline List<T> List<T>::copy(size_t start, size_t end) const {
+inline List<T> List<T>::copy(Allocator* a, size_t start, size_t end) const {
     COMT_ASSERT(end >= start);
 
-    auto res = List<T>::alloc(allocator, end - start);
+    auto res = List<T>::alloc(a, end - start);
     for (size_t i = start; i < end; i++) {
         res.push(items[i]);
     }
