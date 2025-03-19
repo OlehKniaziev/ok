@@ -46,13 +46,23 @@
 
 #define COMT_TODO() do { \
     fprintf(stderr, "%s:%d: TODO: Not implemented\n", __FILE__, __LINE__); \
-exit(1); \
+    exit(1); \
 } while (0)
 
 #define COMT_UNUSED(arg) (void)(arg);
 
 #define COMT_UNREACHABLE() do { \
     fprintf(stderr, "%s:%d: Encountered unreachable code\n", __FILE__, __LINE__); \
+    abort(); \
+} while (0)
+
+#define COMT_PANIC(msg) do { \
+    fprintf(stderr, "%s:%d: PROGRAM PANICKED: %s\n", __FILE__, __LINE__, (msg)); \
+    abort(); \
+} while (0)
+
+#define COMT_PANIC_FMT(fmt, ...) do { \
+    fprintf(stderr, "%s:%d: PROGRAM PANICKED: " fmt "\n", __FILE__, __LINE__, __VA_ARGS__); \
     abort(); \
 } while (0)
 
@@ -930,8 +940,6 @@ void eprintln(const char*);
 void eprintln(String);
 void eprintln(StringView);
 
-[[noreturn]] void panic(const char*, ...) ATTRIBUTE_PRINTF(1, 2);
-
 String to_string(Allocator*, int32_t);
 String to_string(Allocator*, uint32_t);
 String to_string(Allocator*, int64_t);
@@ -1182,7 +1190,7 @@ Optional<File::OpenError> File::open(File* out, const char* path) {
         case ENXIO:        return OpenError::IS_SOCKET;
         case EOVERFLOW:    return OpenError::FILE_TOO_BIG;
         case EROFS:        return OpenError::READONLY_FILE;
-        case EFAULT:       panic("Parameter 'path' is not mapped to the current process");
+        case EFAULT:       COMT_PANIC_FMT("Parameter 'path' (%p) is not mapped to the current process", path);
         default:           COMT_UNREACHABLE();
         }
     }
@@ -1211,7 +1219,7 @@ Optional<File::ReadError> File::read_full(Allocator* a, List<uint8_t>* out) {
     if (r < 0) {
         switch (errno) {
         case EIO:    return ReadError::IO_ERROR;
-        case EFAULT: panic("The buffer is mapped outside the current process");
+        case EFAULT: COMT_PANIC_FMT("The buffer (%p) is mapped outside the current process", out->items);
         default:     COMT_UNREACHABLE();
         }
     }
@@ -1222,18 +1230,6 @@ Optional<File::ReadError> File::read_full(Allocator* a, List<uint8_t>* out) {
 }
 
 // PROCEDURES IMPLEMENTATION
-void panic(const char* fmt, ...) {
-    va_list fmt_args;
-
-    va_start(fmt_args, fmt);
-    {
-        vfprintf(stderr, fmt, fmt_args);
-    }
-    va_end(fmt_args);
-
-    abort();
-}
-
 String to_string(Allocator* allocator, uint32_t value) {
     String s = String::alloc(allocator, 10);
 
