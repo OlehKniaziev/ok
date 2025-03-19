@@ -322,9 +322,11 @@ inline bool operator ==(const StringView lhs, const StringView rhs) {
     return true;
 }
 
+inline namespace literals {
 constexpr StringView operator ""_sv(const char* cstr, size_t len) {
     return StringView{cstr, len};
 }
+};
 
 struct String {
     static constexpr char NULL_CHAR = '\0';
