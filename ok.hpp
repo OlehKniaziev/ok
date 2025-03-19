@@ -66,6 +66,51 @@
     abort(); \
 } while (0)
 
+#if defined(__unix__) || defined(__unix) || defined(__APPLE__)
+
+#define OK_UNIX 1
+#define OK_WINDOWS 0
+
+#include <sys/mman.h>
+#include <unistd.h>
+
+#define OK_ALLOC_PAGE(sz) (mmap(NULL, (sz), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0))
+#define OK_DEALLOC_PAGE(page, size) (munmap((page), (size)))
+#define OK_ALLOC_SMOL(sz) (sbrk((sz)))
+
+#define OK_PAGE_SIZE 4096
+#define OK_PAGE_ALIGN OK_PAGE_SIZE
+
+#elif defined(_WIN32)
+
+#define OK_UNIX 0
+#define OK_WINDOWS 1
+
+#include <windows.h>
+#include <memoryapi.h>
+#include <heapapi.h>
+#include <io.h>
+
+#undef max
+#undef min
+
+#define OK_PAGE_SIZE 4096
+#define OK_PAGE_ALIGN (64 * 1024)
+
+#define OK_ALLOC_PAGE(sz) (VirtualAlloc(nullptr, (sz), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE))
+#define OK_DEALLOC_PAGE(page, size) (VirtualFree((page), 0, MEM_RELEASE))
+#define OK_ALLOC_SMOL(sz) (HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, (sz)))
+
+#else
+#error "Only UNIX-like systems and Windows are supported"
+#endif // platform check
+
+#ifdef __GNUC__
+#define ATTRIBUTE_PRINTF(fmt, args) __attribute__((format(printf, fmt, args)))
+#else
+#define ATTRIBUTE_PRINTF(fmt, args)
+#endif // __GNUC__
+
 namespace ok {
 struct Allocator {
     // required methods
@@ -102,46 +147,6 @@ struct Allocator {
 
 extern Allocator* temp_allocator;
 extern Allocator* static_allocator;
-
-#if defined(__unix__) || defined(__unix) || defined(__APPLE__)
-
-#include <sys/mman.h>
-#include <unistd.h>
-
-#define OK_ALLOC_PAGE(sz) (mmap(NULL, (sz), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0))
-#define OK_DEALLOC_PAGE(page, size) (munmap((page), (size)))
-#define OK_ALLOC_SMOL(sz) (sbrk((sz)))
-
-#define OK_PAGE_SIZE 4096
-#define OK_PAGE_ALIGN OK_PAGE_SIZE
-
-#elif defined(_WIN32)
-
-#include <windows.h>
-#include <memoryapi.h>
-#include <heapapi.h>
-
-#undef max
-#undef min
-
-#define OK_PAGE_SIZE 4096
-#define OK_PAGE_ALIGN (64 * 1024)
-
-#define OK_ALLOC_PAGE(sz) (VirtualAlloc(nullptr, (sz), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE))
-#define OK_DEALLOC_PAGE(page, size) (VirtualFree((page), 0, MEM_RELEASE))
-#define OK_ALLOC_SMOL(sz) (HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, (sz)))
-
-#else
-
-#error "Only UNIX-like systems and Windows are supported"
-
-#endif // platform check
-
-#ifdef __GNUC__
-#define ATTRIBUTE_PRINTF(fmt, args) __attribute__((format(printf, fmt, args)))
-#else
-#define ATTRIBUTE_PRINTF(fmt, args)
-#endif // __GNUC__
 
 struct FixedBufferAllocator : public Allocator {
     void* raw_alloc(size_t size) override;
