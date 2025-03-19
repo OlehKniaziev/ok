@@ -390,6 +390,16 @@ struct String {
         return data.count - 1;
     }
 
+    inline bool operator ==(const String& other) {
+        if (other.count() != count()) return false;
+
+        for (size_t i = 0; i < count(); ++i) {
+            if (data.items[i] != other.data.items[i]) return false;
+        }
+
+        return true;
+    }
+
     inline char& operator [](size_t idx) {
         COMT_ASSERT(idx < count());
 
