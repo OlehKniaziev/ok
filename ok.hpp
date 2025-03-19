@@ -34,6 +34,7 @@
 #include <cstdarg>
 #include <cerrno>
 #include <fcntl.h>
+#include <sys/types.h>
 
 #ifndef OK_ASSERT
 #define OK_ASSERT(x) do { \
@@ -918,6 +919,11 @@ struct File {
 
     static Optional<OpenError> open(File* out, const char* path);
 
+    void seek_start() const;
+    off_t seek_end() const;
+
+    Optional<ReadError> read(uint8_t* buf, size_t count);
+
     Optional<ReadError> read_full(Allocator* a, List<uint8_t>* out);
 
     size_t size() const;
@@ -1191,10 +1197,16 @@ String StringView::to_string(Allocator* a) const {
 
 // FILESYSTEM API IMPLEMENTATION
 Optional<File::OpenError> File::open(File* out, const char* path) {
+#if OK_UNIX
     int fd = ::open(path, O_RDWR);
+    int error = errno;
+#elif OK_WINDOWS
+    int fd;
+    errno_t error = ::_sopen_s(&fd, path, _O_RDWR, _SH_DENYNO, 0);
+#endif // OK_UNIX
 
     if (fd < 0) {
-        switch (errno) {
+        switch (error) {
         case EACCES:       return OpenError::ACCESS_DENIED;
         case EINVAL:       return OpenError::INVALID_PATH;
         case EISDIR:       return OpenError::IS_DIRECTORY;
@@ -1218,32 +1230,58 @@ Optional<File::OpenError> File::open(File* out, const char* path) {
     return {};
 }
 
-size_t File::size() const {
-    off_t seek_res = lseek(fd, 0, SEEK_END);
+static inline off_t _lseek(int fd, off_t offset, int whence) {
+#if OK_UNIX
+    return ::lseek(fd, offset, whence);
+#elif OK_WINDOWS
+    return ::_lseek(fd, offset, whence);
+#endif // OK_UNIX
+}
+
+void File::seek_start() const {
+    off_t seek_res = _lseek(fd, 0, SEEK_END);
+    OK_ASSERT(seek_res != (off_t)-1);
+}
+
+off_t File::seek_end() const {
+    off_t seek_res = _lseek(fd, 0, SEEK_SET);
     OK_ASSERT(seek_res != (off_t)-1);
 
-    OK_ASSERT(lseek(fd, 0, SEEK_SET) != (off_t)-1);
-
     return seek_res;
+}
+
+size_t File::size() const {
+    seek_start();
+    return seek_end();
+}
+
+static inline int64_t _read(int fd, void* buffer, size_t count) {
+#if OK_UNIX
+    return ::read(fd, buffer, count);
+#elif OK_WINDOWS
+    return ::_read(fd, buffer, (unsigned int)count);
+#endif // OK_UNIX
+}
+
+Optional<File::ReadError> File::read(uint8_t* buf, size_t count) {
+    int64_t r = ok::_read(fd, buf, count);
+
+    if (r < 0) {
+        switch (errno) {
+        case EIO: return ReadError::IO_ERROR;
+        case EFAULT: OK_PANIC_FMT("The buffer (%p) is mapped outside the current process", buf);
+        default: OK_UNREACHABLE();
+        }
+    }
+
+    return {};
 }
 
 Optional<File::ReadError> File::read_full(Allocator* a, List<uint8_t>* out) {
     size_t sz = size();
     *out = List<uint8_t>::alloc(a, sz);
-
-    auto r = read(fd, out->items, sz);
-
-    if (r < 0) {
-        switch (errno) {
-        case EIO:    return ReadError::IO_ERROR;
-        case EFAULT: OK_PANIC_FMT("The buffer (%p) is mapped outside the current process", out->items);
-        default:     OK_UNREACHABLE();
-        }
-    }
-
-    out->count = r;
-
-    return {};
+    out->count = sz;
+    return read(out->items, sz);
 }
 
 // PROCEDURES IMPLEMENTATION
