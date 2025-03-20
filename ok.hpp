@@ -321,6 +321,15 @@ struct StringView {
 
     String to_string(Allocator* a) const;
 
+    inline StringView view(size_t start, size_t end) const {
+        OK_ASSERT(end >= start);
+        return StringView{data + start, end - start};
+    }
+
+    inline StringView view(size_t start) const {
+        return view(start, count);
+    }
+
     inline bool operator ==(const StringView rhs) const {
         if (count != rhs.count) return false;
 
