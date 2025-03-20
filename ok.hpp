@@ -67,6 +67,8 @@
     abort(); \
 } while (0)
 
+#define OK_ARR_LEN(xs) (sizeof((xs)) / sizeof((xs)[0]))
+
 #if defined(__unix__) || defined(__unix) || defined(__APPLE__)
 
 #define OK_UNIX 1
