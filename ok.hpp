@@ -749,7 +749,7 @@ inline size_t List<T>::find_index(F pred) {
 template <typename T>
 Slice<T> List<T>::slice(size_t start, size_t end) const {
     OK_ASSERT(end >= start);
-    return Slice{items + start, end - start};
+    return Slice<T>{items + start, end - start};
 }
 
 template <typename T>
