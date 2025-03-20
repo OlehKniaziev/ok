@@ -524,6 +524,12 @@ struct Optional<T*> : public OptionalBase<Optional, T> {
 
 static_assert(sizeof(Optional<int*>) == sizeof(int*));
 
+template <typename A, typename B> 
+struct Pair {
+    A a;
+    B b;
+};
+
 namespace hash {
 uint64_t fnv1(StringView);
 };
