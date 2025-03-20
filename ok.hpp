@@ -341,6 +341,11 @@ struct StringView {
         return !(*this == string);
     }
 
+    inline const char& operator [](size_t idx) const {
+        OK_ASSERT(idx < count);
+        return data[idx];
+    }
+
     const char* data;
     size_t count;
 };
