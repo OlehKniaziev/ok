@@ -27,12 +27,13 @@
 #ifndef OK_H_
 #define OK_H_
 
-#include <cstdlib>
-#include <cstdio>
-#include <cstring>
-#include <cstdint>
-#include <cstdarg>
+#include <cctype>
 #include <cerrno>
+#include <cstdarg>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <fcntl.h>
 #include <sys/types.h>
 
@@ -1290,20 +1291,21 @@ static inline off_t _lseek(int fd, off_t offset, int whence) {
 }
 
 void File::seek_start() const {
-    off_t seek_res = _lseek(fd, 0, SEEK_END);
+    off_t seek_res = _lseek(fd, 0, SEEK_SET);
     OK_ASSERT(seek_res != (off_t)-1);
 }
 
 off_t File::seek_end() const {
-    off_t seek_res = _lseek(fd, 0, SEEK_SET);
+    off_t seek_res = _lseek(fd, 0, SEEK_END);
     OK_ASSERT(seek_res != (off_t)-1);
 
     return seek_res;
 }
 
 size_t File::size() const {
+    off_t res = seek_end();
     seek_start();
-    return seek_end();
+    return res;
 }
 
 static inline int64_t _read(int fd, void* buffer, size_t count) {
