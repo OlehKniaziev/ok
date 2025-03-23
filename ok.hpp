@@ -216,10 +216,42 @@ struct ArenaAllocator : public Allocator {
 };
 
 // templates
-#define OK_LIST_GROW_FACTOR(x) ((((x) + 1) * 3) >> 1)
-
 template <typename T>
 struct Slice;
+
+template <typename T, size_t N>
+struct Array {
+    T items[N];
+
+    Slice<T> slice(size_t start, size_t end) const {
+        OK_ASSERT(start <= end);
+        OK_ASSERT(end <= N);
+
+        return Slice<T>{items + start, end - start};
+    }
+
+    Slice<T> slice(size_t start) const {
+        return slice(start, N);
+    }
+
+    Slice<T> slice() const {
+        return slice(0, N);
+    }
+
+    inline T& operator [](size_t idx) {
+        OK_ASSERT(idx < N);
+
+        return items[idx];
+    }
+
+    inline const T& operator [](size_t idx) const {
+        OK_ASSERT(idx < N);
+
+        return items[idx];
+    }
+};
+
+#define OK_LIST_GROW_FACTOR(x) ((((x) + 1) * 3) >> 1)
 
 template <typename T>
 struct List {
