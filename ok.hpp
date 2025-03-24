@@ -150,6 +150,29 @@ using F64 = double;
 #endif // __GNUC__
 
 namespace ok {
+// min and max
+template <typename T>
+constexpr const T& max(const T& a) {
+    return a;
+}
+
+template <typename T, typename... Rest>
+constexpr const T& max(const T& x, const Rest&... xs) {
+    const T& xs_max = max(xs...);
+    return x > xs_max ? x : xs_max;
+}
+
+template <typename T>
+constexpr const T& min(const T& a) {
+    return a;
+}
+
+template <typename T, typename... Rest>
+constexpr const T& min(const T& x, const Rest&... xs) {
+    const T& xs_min = min(xs...);
+    return x < xs_min ? x : xs_min;
+}
+
 struct Allocator {
     // required methods
     virtual void* raw_alloc(UZ size) = 0;
@@ -401,6 +424,15 @@ struct StringView {
         return view(start, count);
     }
 
+    inline constexpr auto operator <=>(const StringView& other) const {
+        UZ min_length = min(count, other.count);
+        for (UZ i = 0; i < min_length; ++i) {
+            if (data[i] < other[i]) return -1;
+            if (data[i] > other[i]) return 1;
+        }
+        return 0;
+    }
+
     inline bool operator ==(const StringView rhs) const {
         if (count != rhs.count) return false;
 
@@ -409,10 +441,6 @@ struct StringView {
         }
 
         return true;
-    }
-
-    inline bool operator!=(const StringView & string_view) const {
-        return !(*this == string_view);
     }
 
     bool operator ==(const String& string) const;
@@ -1047,28 +1075,6 @@ struct File {
 };
 
 // procedures
-template <typename T>
-const T& max(const T& a) {
-    return a;
-}
-
-template <typename T, typename... Rest>
-const T& max(const T& x, const Rest&... xs) {
-    const T& xs_max = max(xs...);
-    return x > xs_max ? x : xs_max;
-}
-
-template <typename T>
-const T& min(const T& a) {
-    return a;
-}
-
-template <typename T, typename... Rest>
-const T& min(const T& x, const Rest&... xs) {
-    const T& xs_min = min(xs...);
-    return x < xs_min ? x : xs_min;
-}
-
 void println(const char*);
 void println(StringView);
 void println(String);
