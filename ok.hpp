@@ -111,9 +111,9 @@
 #endif // platform check
 
 #ifdef __GNUC__
-#define ATTRIBUTE_PRINTF(fmt, args) __attribute__((format(printf, fmt, args)))
+#define OK_ATTRIBUTE_PRINTF(fmt, args) __attribute__((format(printf, fmt, args)))
 #else
-#define ATTRIBUTE_PRINTF(fmt, args)
+#define OK_ATTRIBUTE_PRINTF(fmt, args)
 #endif // __GNUC__
 
 namespace ok {
@@ -415,12 +415,12 @@ struct String {
     static String from(List<uint8_t>);
     static String from(List<char>);
 
-    static String format(Allocator* a, const char* fmt, ...) ATTRIBUTE_PRINTF(2, 3);
+    static String format(Allocator* a, const char* fmt, ...) OK_ATTRIBUTE_PRINTF(2, 3);
 
     void append(StringView);
     void append(String);
 
-    void format_append(const char*, ...) ATTRIBUTE_PRINTF(2, 3);
+    void format_append(const char*, ...) OK_ATTRIBUTE_PRINTF(2, 3);
 
     bool starts_with(StringView);
 
@@ -594,7 +594,7 @@ struct Optional<T*> : public OptionalBase<Optional, T> {
 
 static_assert(sizeof(Optional<int*>) == sizeof(int*));
 
-template <typename A, typename B> 
+template <typename A, typename B>
 struct Pair {
     A a;
     B b;
