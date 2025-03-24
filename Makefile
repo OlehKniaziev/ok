@@ -3,18 +3,20 @@ TEST_FILES = tests/arena.test.o tests/string-view.test.o tests/string.test.o tes
 
 CXXFLAGS += -Wall -Wextra -Werror -pedantic
 
-.PHONY: test smoke-test
+.PHONY: test smoke-test clean
 
 %.test.o: %.cpp ok.hpp
 	$(CXX) $(CXXFLAGS) -o $@ $<
 	@ echo Running test $@...
 	@ ./$@
-	@ rm $@
 
 test: smoke-test $(TEST_FILES)
 	@ echo All tests passed.
 
 smoke-test: $(SMOKE_TEST) ok.hpp
 	@ $(CXX) $(CXXFLAGS) -o smoke.test.o $<
-	@ rm smoke.test.o
 	@ echo Passed the smoke test
+
+clean:
+	$(shell rm *.o)
+	$(shell rm tests/*.o)
