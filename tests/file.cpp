@@ -3,6 +3,20 @@
 
 using namespace ok;
 
+char* read_file_to_cstr(const char* filepath) {
+    FILE* f = fopen(filepath, "r");
+    OK_ASSERT(f);
+
+    void* mem = static_allocator->raw_alloc(50'000'000);
+    size_t nread = fread(mem, sizeof(char), 50'000'000, f);
+
+    OK_ASSERT(nread != 0);
+
+    ((char*)(mem))[nread] = '\0';
+
+    return (char*)mem;
+}
+
 int main() {
     File file;
 
@@ -17,6 +31,10 @@ int main() {
     String s = String::from(buffer);
 
     OK_ASSERT(s.starts_with("#define OK_IMPLEMENTATION"_sv));
+
+    const char* file_contents_cstr = read_file_to_cstr(__FILE__);
+
+    OK_ASSERT(s == StringView{file_contents_cstr});
 
     return 0;
 }

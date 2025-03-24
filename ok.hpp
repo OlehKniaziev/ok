@@ -94,6 +94,7 @@
 #include <memoryapi.h>
 #include <heapapi.h>
 #include <io.h>
+#include <share.h>
 
 #undef max
 #undef min
@@ -1002,7 +1003,7 @@ struct File {
     void seek_start() const;
     off_t seek_end() const;
 
-    Optional<ReadError> read(uint8_t* buf, size_t count);
+    Optional<ReadError> read(uint8_t* buf, size_t count, size_t* n_read);
 
     Optional<ReadError> read_full(Allocator* a, List<uint8_t>* out);
 
@@ -1350,7 +1351,7 @@ static inline int64_t _read(int fd, void* buffer, size_t count) {
 #endif // OK_UNIX
 }
 
-Optional<File::ReadError> File::read(uint8_t* buf, size_t count) {
+Optional<File::ReadError> File::read(uint8_t* buf, size_t count, size_t* n_read) {
     int64_t r = ok::_read(fd, buf, count);
 
     if (r < 0) {
@@ -1361,14 +1362,23 @@ Optional<File::ReadError> File::read(uint8_t* buf, size_t count) {
         }
     }
 
+    *n_read = r;
+
     return {};
 }
 
 Optional<File::ReadError> File::read_full(Allocator* a, List<uint8_t>* out) {
     size_t sz = size();
     *out = List<uint8_t>::alloc(a, sz);
-    out->count = sz;
-    return read(out->items, sz);
+
+    size_t n_read;
+    auto err = read(out->items, sz, &n_read);
+
+    if (err.has_value()) return err;
+
+    out->count = n_read;
+
+    return {};
 }
 
 // PROCEDURES IMPLEMENTATION
