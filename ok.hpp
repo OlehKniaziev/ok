@@ -582,6 +582,10 @@ struct OptionalBase {
     const Self<T>* cast() const {
         return static_cast<const Self<T>*>(this);
     }
+
+    operator bool() const {
+        return cast()->has_value();
+    }
 };
 
 template <typename T>
