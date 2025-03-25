@@ -562,29 +562,29 @@ struct String {
 template <template <typename> class Self, typename T>
 struct OptionalBase {
     const T& or_else(const T& other) const {
-        auto* self = cast();
+        auto* self = self_cast();
 
         if (self->has_value()) return self->get_unchecked();
         return other;
     }
 
     T& or_else(T& other) {
-        auto* self = cast();
+        auto* self = self_cast();
 
         if (self->has_value(this)) return self->get_unchecked();
         return other;
     }
 
-    Self<T>* cast() {
+    Self<T>* self_cast() {
         return static_cast<Self<T>*>(this);
     }
 
-    const Self<T>* cast() const {
+    const Self<T>* self_cast() const {
         return static_cast<const Self<T>*>(this);
     }
 
     operator bool() const {
-        return cast()->has_value();
+        return self_cast()->has_value();
     }
 };
 
@@ -651,6 +651,15 @@ struct Optional<T*> : public OptionalBase<Optional, T> {
         return get_unchecked();
     }
 
+    template <typename Base>
+    inline Optional<Base*> upcast() {
+        return Optional<Base*>{static_cast<Base*>(value)};
+    }
+
+    template <typename Base>
+    inline Optional<const Base*> upcast() const {
+        return Optional<const Base*>{static_cast<const Base*>(value)};
+    }
 
     T* value;
 
