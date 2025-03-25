@@ -624,7 +624,7 @@ struct Optional : public OptionalBase<Optional, T> {
 };
 
 template <typename T>
-struct Optional<T*> : public OptionalBase<Optional, T> {
+struct Optional<T*> : public OptionalBase<Optional, T*> {
     Optional() : value{nullptr} {}
 
     Optional(T* value) : value{value} {}
