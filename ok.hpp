@@ -350,6 +350,11 @@ struct List {
         return list;
     }
 
+    inline T& pop() {
+        OK_ASSERT(count > 0);
+        return items[--count];
+    }
+
     inline T& operator [](UZ idx) {
         OK_ASSERT(idx < count);
 
