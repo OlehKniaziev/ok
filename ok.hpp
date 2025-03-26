@@ -224,9 +224,8 @@ static inline uintptr_t align_up(uintptr_t size, uintptr_t align) {
     return size + ((align - (size & (align - 1))) & (align - 1));
 }
 
-
 static inline uintptr_t align_down(uintptr_t size, uintptr_t align) {
-    return size - (size & (align - 1) & (align - 1));
+    return size - (size & (align - 1));
 }
 
 struct ArenaAllocator : public Allocator {
@@ -1368,7 +1367,7 @@ Optional<File::OpenError> File::open(File* out, const char* path) {
         case ENXIO:        return OpenError::IS_SOCKET;
         case EOVERFLOW:    return OpenError::FILE_TOO_BIG;
         case EROFS:        return OpenError::READONLY_FILE;
-        case EFAULT:       OK_PANIC_FMT("Parameter 'path' (%p) is not mapped to the current process", path);
+        case EFAULT:       OK_PANIC_FMT("Parameter 'path' (%p) is not mapped to the current process", (void*)path);
         default:           OK_UNREACHABLE();
         }
     }
@@ -1419,7 +1418,7 @@ Optional<File::ReadError> File::read(U8* buf, UZ count, UZ* n_read) {
     if (r < 0) {
         switch (errno) {
         case EIO: return ReadError::IO_ERROR;
-        case EFAULT: OK_PANIC_FMT("The buffer (%p) is mapped outside the current process", buf);
+        case EFAULT: OK_PANIC_FMT("The buffer (%p) is mapped outside the current process", (void*)buf);
         default: OK_UNREACHABLE();
         }
     }
