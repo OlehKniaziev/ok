@@ -416,7 +416,7 @@ struct StringView {
     StringView() = default;
 
     constexpr StringView(const char* data, UZ count) : data{data}, count{count} {}
-    explicit constexpr StringView(const char* cstr) : StringView{cstr, strlen(cstr)} {}
+    explicit StringView(const char* cstr) : StringView{cstr, strlen(cstr)} {}
 
     String to_string(Allocator* a) const;
 
