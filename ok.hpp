@@ -220,8 +220,13 @@ struct FixedBufferAllocator : public Allocator {
     UZ buffer_off;
 };
 
-static inline uintptr_t align_to(uintptr_t size, uintptr_t align) {
+static inline uintptr_t align_up(uintptr_t size, uintptr_t align) {
     return size + ((align - (size & (align - 1))) & (align - 1));
+}
+
+
+static inline uintptr_t align_down(uintptr_t size, uintptr_t align) {
+    return size - (size & (align - 1) & (align - 1));
 }
 
 struct ArenaAllocator : public Allocator {
@@ -1126,11 +1131,11 @@ static void _init_region(ArenaAllocator::Region* region, UZ size) {
 
 // ALLOCATORS IMPLEMENTATION
 void* FixedBufferAllocator::raw_alloc(UZ size) {
-    size = align_to(size, sizeof(void*));
+    size = align_up(size, sizeof(void*));
 
     if (buffer == nullptr) {
         buffer_size = max(size, OK_PAGE_SIZE * FixedBufferAllocator::DEFAULT_PAGE_COUNT);
-        buffer_size = align_to(buffer_size, OK_PAGE_ALIGN);
+        buffer_size = align_up(buffer_size, OK_PAGE_ALIGN);
         buffer = OK_ALLOC_PAGE(buffer_size);
         buffer_off = 0;
     }
@@ -1154,7 +1159,7 @@ void FixedBufferAllocator::raw_dealloc(void* ptr, UZ size) {
 ArenaAllocator::Region* ArenaAllocator::alloc_region(UZ region_size) {
     using Region = ArenaAllocator::Region;
 
-    region_size = align_to(region_size, OK_PAGE_ALIGN);
+    region_size = align_up(region_size, OK_PAGE_ALIGN);
 
     Region* current_region = region_pool;
 
@@ -1164,7 +1169,7 @@ ArenaAllocator::Region* ArenaAllocator::alloc_region(UZ region_size) {
 
             _init_region(region, region_size);
 
-            current_region->off += align_to(sizeof(Region), sizeof(void*));
+            current_region->off += align_up(sizeof(Region), sizeof(void*));
 
             return region;
         }
@@ -1176,7 +1181,7 @@ ArenaAllocator::Region* ArenaAllocator::alloc_region(UZ region_size) {
 
     current_region->data = OK_ALLOC_PAGE(OK_PAGE_SIZE);
     current_region->size = OK_PAGE_SIZE;
-    current_region->off = align_to(sizeof(Region), sizeof(void*));
+    current_region->off = align_up(sizeof(Region), sizeof(void*));
     current_region->next = region_pool;
 
     this->region_pool = current_region;
@@ -1189,7 +1194,7 @@ ArenaAllocator::Region* ArenaAllocator::alloc_region(UZ region_size) {
 void* ArenaAllocator::raw_alloc(UZ size) {
     ArenaAllocator::Region* region_head = this->head;
 
-    size = align_to(size, sizeof(void*));
+    size = align_up(size, sizeof(void*));
 
     while (region_head) {
         if (region_head->size - region_head->off >= size) {
@@ -1201,7 +1206,7 @@ void* ArenaAllocator::raw_alloc(UZ size) {
         region_head = region_head->next;
     }
 
-    UZ region_size = align_to(size, OK_PAGE_ALIGN);
+    UZ region_size = align_up(size, OK_PAGE_ALIGN);
     region_head = alloc_region(region_size);
     region_head->next = this->head;
     this->head = region_head;
