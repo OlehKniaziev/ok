@@ -736,12 +736,21 @@ U64 fnv1(StringView);
 };
 
 template <typename T>
-struct Hash {};
+struct Hash {
+    static U64 hash(const T& value) {
+        return value.ok_hash_value();
+    }
+};
 
 template <typename T>
 struct HashPtr {
     HashPtr(const T* v) : value{v} {}
     HashPtr(T* v) : value{v} {}
+
+    inline bool operator ==(const T* ptr) const {
+        return *value == *ptr;
+    }
+
     const T* value;
 };
 
