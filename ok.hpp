@@ -799,15 +799,22 @@ bool operator ==(const HashPtr<T>& lhs, const HashPtr<T>& rhs);
     }\
     } while (0)
 
-template <typename K, typename V>
+template <typename TKey, typename TValue>
 struct Table {
     using Meta = U8;
 
-    static Table<K, V> alloc(Allocator* a, UZ capacity = Table::DEFAULT_CAPACITY);
+    static Table<TKey, TValue> alloc(Allocator* a, UZ capacity = Table::DEFAULT_CAPACITY);
 
-    void put(const K& key, const V& value);
-    Optional<V> get(const K& key);
-    bool has(const K& key);
+    void put(const TKey& key, const TValue& value);
+
+    Optional<TValue> get(const TKey& key);
+    template <typename K>
+    Optional<TValue> get(const K& key);
+
+    bool has(const TKey& key) const;
+    template <typename K>
+    bool has(const K& key) const;
+
 
     static constexpr UZ DEFAULT_CAPACITY = 47;
 
@@ -815,8 +822,8 @@ struct Table {
         return (U8)((double)(count * 100) / (double)capacity);
     }
 
-    K* keys;
-    V* values;
+    TKey* keys;
+    TValue* values;
     U8* meta;
     UZ count;
     UZ capacity;
@@ -1037,8 +1044,43 @@ Optional<V> Table<K, V>::get(const K& key) {
     return {};
 }
 
+template <typename TKey, typename TValue>
+template <typename K>
+Optional<TValue> Table<TKey, TValue>::get(const K& key) {
+    U64 idx = Hash<K>::hash(key) % capacity;
+    U64 initial_idx = idx;
+
+    do {
+        if (OK_TAB_IS_OCCUPIED(meta[idx]) && keys[idx] == key) {
+            return values[idx];
+        }
+
+        idx = (idx + 1) % capacity;
+    } while (idx != initial_idx);
+
+    return {};
+}
+
 template <typename K, typename V>
-bool Table<K, V>::has(const K& key) {
+bool Table<K, V>::has(const K& key) const {
+    U64 idx = Hash<K>::hash(key) % capacity;
+    U64 initial_idx = idx;
+
+    do {
+        if (OK_TAB_IS_OCCUPIED(meta[idx]) && keys[idx] == key) {
+            return true;
+        }
+
+        idx = (idx + 1) % capacity;
+    } while (idx != initial_idx);
+
+    return false;
+}
+
+
+template <typename TKey, typename TValue>
+template <typename K>
+bool Table<TKey, TValue>::has(const K& key) const {
     U64 idx = Hash<K>::hash(key) % capacity;
     U64 initial_idx = idx;
 
