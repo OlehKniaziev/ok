@@ -280,42 +280,86 @@ struct ArenaAllocator : public Allocator {
 template <typename T>
 struct Slice;
 
-template <typename T, UZ N>
-struct Array {
-    T items[N];
+template <typename Self, typename T>
+struct ArrayBase {
+    Slice<T> slice(UZ start, UZ end);
+    Slice<T> slice(UZ start);
+    Slice<T> slice();
+    Slice<const T> slice(UZ start, UZ end) const;
+    Slice<const T> slice(UZ start) const;
+    Slice<const T> slice() const;
 
-    Slice<T> slice(UZ start, UZ end) const {
-        OK_ASSERT(start <= end);
-        OK_ASSERT(end <= N);
+    UZ find_index(const T& elem) const {
+        auto* self = self_cast();
+        UZ count = self->get_count();
+        const T* items = self->get_items();
 
-        return Slice<T>{items + start, end - start};
+        for (UZ i = 0; i < count; i++) {
+            if (items[i] == elem) {
+                return i;
+            }
+        }
+
+        return (UZ)-1;
     }
 
-    Slice<T> slice(UZ start) const {
-        return slice(start, N);
-    }
+    template <typename F>
+    UZ find_index(F pred) const {
+        auto* self = self_cast();
+        UZ count = self->get_count();
+        const T* items = self->get_items();
 
-    Slice<T> slice() const {
-        return slice(0, N);
+        for (UZ i = 0; i < count; i++) {
+            if (pred(items[i])) {
+                return i;
+            }
+        }
+
+        return (UZ)-1;
     }
 
     inline T& operator [](UZ idx) {
-        OK_ASSERT(idx < N);
-
-        return items[idx];
+        auto* self = self_cast();
+        OK_ASSERT(idx < self->get_count());
+        return self->get_items()[idx];
     }
 
     inline const T& operator [](UZ idx) const {
-        OK_ASSERT(idx < N);
+        auto* self = self_cast();
+        OK_ASSERT(idx < self->get_count());
+        return self->get_items()[idx];
+    }
 
-        return items[idx];
+    Self* self_cast() {
+        return static_cast<Self*>(this);
+    }
+
+    const Self* self_cast() const {
+        return static_cast<const Self*>(this);
+    }
+};
+
+template <typename T, UZ N>
+struct Array : public ArrayBase<Array<T, N>, T> {
+    T items[N];
+
+    UZ get_count() const {
+        return N;
+    }
+
+    T* get_items() {
+        return items;
+    }
+
+    const T* get_items() const {
+        return items;
     }
 };
 
 #define OK_LIST_GROW_FACTOR(x) ((((x) + 1) * 3) >> 1)
 
 template <typename T>
-struct List {
+struct List : public ArrayBase<List<T>, T> {
     static List<T> alloc(Allocator* a, UZ cap = List::DEFAULT_CAP);
 
     static constexpr UZ DEFAULT_CAP = 7;
@@ -340,9 +384,17 @@ struct List {
     template <typename F>
     UZ find_index(F pred);
 
-    Slice<T> slice(UZ start, UZ end) const;
-    Slice<T> slice(UZ start) const;
-    Slice<T> slice() const;
+    UZ get_count() const {
+        return count;
+    }
+
+    T* get_items() {
+        return items;
+    }
+
+    const T* get_items() const {
+        return items;
+    }
 
     template <typename Dest>
     inline List<Dest> cast() {
@@ -359,18 +411,6 @@ struct List {
         return items[--count];
     }
 
-    inline T& operator [](UZ idx) {
-        OK_ASSERT(idx < count);
-
-        return items[idx];
-    }
-
-    inline const T& operator [](UZ idx) const {
-        OK_ASSERT(idx < count);
-
-        return items[idx];
-    }
-
     T* items;
     UZ count;
     UZ capacity;
@@ -378,31 +418,39 @@ struct List {
 };
 
 template <typename T>
-struct Slice {
-    inline Slice<T> slice(UZ start, UZ end) const {
-        OK_ASSERT(end >= start);
-        return Slice<T>{items + start, end - start};
+struct Slice : public ArrayBase<Slice<T>, T> {
+    Slice() = default;
+    Slice(T* items, UZ count) : items{items}, count{count} {}
+
+    UZ get_count() const {
+        return count;
     }
 
-    inline Slice<T> slice(UZ start) const {
-        return slice(start, count);
+    T* get_items() {
+        return items;
+    }
+
+    const T* get_items() const {
+        return items;
     }
 
     template <typename Dest>
-    inline Slice<Dest> cast() const {
+    inline Slice<const Dest> cast() const {
         Slice<Dest> slice;
         slice.items = (const Dest*)items;
         slice.count = count;
         return slice;
     }
 
-    inline const T& operator [](UZ idx) const {
-        OK_ASSERT(idx < count);
-
-        return items[idx];
+    template <typename Dest>
+    inline Slice<Dest> cast() {
+        Slice<Dest> slice;
+        slice.items = (Dest*)items;
+        slice.count = count;
+        return slice;
     }
 
-    const T* items;
+    T* items;
     UZ count;
 };
 
@@ -812,6 +860,53 @@ const Optional<T> Optional<T>::NONE = Optional<T>{};
 template <typename T>
 const Optional<T> Optional<T*>::NONE = Optional<T*>{};
 
+// ARRAY BASE IMPLEMENTATION
+template <typename Self, typename T>
+Slice<T> ArrayBase<Self, T>::slice(UZ start, UZ end) {
+    auto* self = self_cast();
+    UZ count = self->get_count();
+
+    OK_ASSERT(end >= start);
+    OK_ASSERT(end <= count);
+
+    return Slice<T>{self->get_items(), end - start};
+}
+
+template <typename Self, typename T>
+Slice<T> ArrayBase<Self, T>::slice(UZ start) {
+    auto* self = self_cast();
+    return slice(start, self->get_count());
+}
+
+template <typename Self, typename T>
+Slice<T> ArrayBase<Self, T>::slice() {
+    auto* self = self_cast();
+    return slice(0, self->get_count());
+}
+
+template <typename Self, typename T>
+Slice<const T> ArrayBase<Self, T>::slice(UZ start, UZ end) const {
+    auto* self = self_cast();
+    UZ count = self->get_count();
+
+    OK_ASSERT(end >= start);
+    OK_ASSERT(end <= count);
+
+    return Slice<const T>{self->get_items(), end - start};
+}
+
+template <typename Self, typename T>
+Slice<const T> ArrayBase<Self, T>::slice(UZ start) const {
+    auto* self = self_cast();
+    return slice(start, self->get_count());
+}
+
+template <typename Self, typename T>
+Slice<const T> ArrayBase<Self, T>::slice() const {
+    auto* self = self_cast();
+    return slice(0, self->get_count());
+}
+
 // LIST IMPLEMENTATION
 template <typename T>
 List<T> List<T>::alloc(Allocator* a, UZ cap) {
@@ -874,45 +969,6 @@ inline void List<T>::reserve(UZ new_cap) {
 
     items = allocator->resize<T>(items, capacity, new_cap);
     capacity = new_cap;
-}
-
-template <typename T>
-inline UZ List<T>::find_index(const T& elem) {
-    for (UZ i = 0; i < count; i++) {
-        if (items[i] == elem) {
-            return i;
-        }
-    }
-
-    return (UZ)-1;
-}
-
-template <typename T>
-template <typename F>
-inline UZ List<T>::find_index(F pred) {
-    for (UZ i = 0; i < count; i++) {
-        if (pred(items[i])) {
-            return i;
-        }
-    }
-
-    return (UZ)-1;
-}
-
-template <typename T>
-Slice<T> List<T>::slice(UZ start, UZ end) const {
-    OK_ASSERT(end >= start);
-    return Slice<T>{items + start, end - start};
-}
-
-template <typename T>
-Slice<T> List<T>::slice(UZ start) const {
-    return slice(start, count);
-}
-
-template <typename T>
-Slice<T> List<T>::slice() const {
-    return slice(0, count);
 }
 
 // TABLE IMPLEMENTATION
