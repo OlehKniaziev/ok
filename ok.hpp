@@ -78,7 +78,9 @@
 #define OK_WINDOWS 0
 
 #include <sys/mman.h>
+#include <sys/wait.h>
 #include <unistd.h>
+#include <spawn.h>
 
 #define OK_ALLOC_PAGE(sz) (mmap(NULL, (sz), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0))
 #define OK_DEALLOC_PAGE(page, size) (munmap((page), (size)))
@@ -203,6 +205,14 @@ struct Allocator {
         memcpy((void*)new_ptr, ptr, old_size * sizeof(T));
         dealloc<T>(ptr, old_size);
         return new_ptr;
+    }
+
+    inline char* strdup(const char* cstr) {
+        UZ len = strlen(cstr);
+        char* result = alloc<char>(len + 1);
+        memcpy((void*)result, cstr, len * sizeof(char));
+        result[len] = '\0';
+        return result;
     }
 };
 
@@ -861,6 +871,132 @@ struct Set {
     UZ count;
     T* values;
     U8* meta;
+};
+
+// SUBPROCESS API
+struct Command {
+    enum class ExecError {
+        TOO_BIG,
+        ACCESS_DENIED,
+        PROCESS_LIMIT_EXCEEDED,
+        INVALID_EXECUTABLE,
+        IO,
+        LOOP,
+        TOO_MANY_FILES,
+        EXECUTABLE_NOT_FOUND,
+        KERNEL_OUT_OF_MEMORY,
+        INVALID_PATH,
+        BUSY,
+        TERMINATED_BY_SIGNAL,
+        STOPPED,
+    };
+
+    static Command alloc(Allocator* allocator, const char* name) {
+        Command cmd;
+        cmd.allocator = allocator;
+        cmd.name = name;
+        cmd.args = List<char*>::alloc(allocator);
+        cmd.envs = List<char*>::alloc(allocator);
+
+        char* name_copy = allocator->strdup(name);
+        cmd.args.push(name_copy);
+
+        return cmd;
+    }
+
+    Command& arg(const char* arg) {
+        if (arg != nullptr) {
+            char* arg_copy = allocator->strdup(arg);
+            args.push(arg_copy);
+        } else {
+            args.push(nullptr);
+        }
+
+        return *this;
+    }
+
+    Command& env(const char* env) {
+        if (env != nullptr) {
+            char* env_copy = allocator->strdup(env);
+            envs.push(env_copy);
+        } else {
+            envs.push(nullptr);
+        }
+
+        return *this;
+    }
+
+    Optional<ExecError> exec() {
+#if OK_UNIX
+        arg(nullptr);
+        env(nullptr);
+
+        pid_t child_pid;
+
+        posix_spawn_file_actions_t actions{};
+        posix_spawnattr_t attributes{};
+
+        int ret = posix_spawnp(&child_pid, name, &actions, &attributes, args.items, envs.items);
+
+        if (ret != 0) {
+            switch (ret) {
+            case E2BIG:    return ExecError::TOO_BIG;
+
+            case EPERM:
+            case EACCES:   return ExecError::ACCESS_DENIED;
+
+            case EAGAIN:   return ExecError::PROCESS_LIMIT_EXCEEDED;
+
+            case ENOEXEC:
+            case ELIBBAD:
+            case EISDIR:
+            case EINVAL:   return ExecError::INVALID_EXECUTABLE;
+
+            case EIO:      return ExecError::IO;
+            case ELOOP:    return ExecError::LOOP;
+            case ENFILE:   return ExecError::TOO_MANY_FILES;
+            case ENOENT:   return ExecError::EXECUTABLE_NOT_FOUND;
+            case ENOMEM:   return ExecError::KERNEL_OUT_OF_MEMORY;
+            case ENOTDIR:  return ExecError::INVALID_PATH;
+            case ETXTBSY:  return ExecError::BUSY;
+            case EFAULT:   OK_UNREACHABLE();
+            default:       OK_PANIC_FMT("unhandled error %d", ret);
+            }
+        }
+
+        int child_status;
+        pid_t wait_ret = waitpid(child_pid, &child_status, 0);
+        if (wait_ret == (pid_t)-1) OK_UNREACHABLE();
+
+        if (WIFEXITED(child_status)) {
+            exit_code = WEXITSTATUS(child_status);
+            return {};
+        }
+
+        if (WIFSIGNALED(child_status)) {
+            term_signal_num = WTERMSIG(child_status);
+            return ExecError::TERMINATED_BY_SIGNAL;
+        }
+
+        if (WIFSTOPPED(child_status)) {
+            stop_signal_num = WSTOPSIG(child_status);
+            return ExecError::STOPPED;
+        }
+
+        return {};
+#else
+        OK_TODO();
+#endif // OS guard
+    }
+
+    Allocator* allocator;
+    const char* name;
+    List<char*> args;
+    List<char*> envs;
+
+    int exit_code;
+    int term_signal_num;
+    int stop_signal_num;
 };
 
 // HASH IMPLEMENTATION
