@@ -577,7 +577,7 @@ struct String {
         return view(0, count());
     }
 
-    inline String copy(Allocator* a) {
+    inline String copy(Allocator* a) const {
         String s;
         s.data = data.copy(a);
         return s;
