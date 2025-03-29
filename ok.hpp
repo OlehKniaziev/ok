@@ -656,7 +656,7 @@ struct OptionalBase {
         return static_cast<const Self<T>*>(this);
     }
 
-    operator bool() const {
+    explicit operator bool() const {
         return self_cast()->has_value();
     }
 };
