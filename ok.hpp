@@ -563,7 +563,12 @@ struct String {
     }
 
     inline StringView view(UZ start, UZ end) const {
-        OK_ASSERT(start < count());
+        UZ c = count();
+        if (c == 0) {
+            return StringView{"", 0};
+        }
+
+        OK_ASSERT(start < c);
         OK_ASSERT(end >= start);
 
         return StringView{data.items + start, end - start};
