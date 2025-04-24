@@ -53,7 +53,7 @@
     abort(); \
 } while (0)
 
-#define OK_UNUSED(arg) (void)(arg);
+#define OK_UNUSED(arg) (void)(arg)
 
 #define OK_UNREACHABLE() do { \
     fprintf(stderr, "%s:%d: Encountered unreachable code\n", __FILE__, __LINE__); \
