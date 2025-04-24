@@ -4,6 +4,7 @@
 using namespace ok;
 
 int main() {
+#if OK_UNIX
     auto cmd = Command::alloc(temp_allocator, "echo");
     cmd.arg("hello").arg("world");
 
@@ -15,6 +16,7 @@ int main() {
 
     err = cmd.exec();
     OK_ASSERT(!err.has_value());
+#endif
 
     return 0;
 }
