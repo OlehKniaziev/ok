@@ -390,10 +390,6 @@ struct List : public ArrayBase<List<T>, T> {
 
     void reserve(UZ new_cap);
 
-    UZ find_index(const T& elem);
-    template <typename F>
-    UZ find_index(F pred);
-
     UZ get_count() const {
         return count;
     }
