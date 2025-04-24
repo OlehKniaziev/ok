@@ -470,6 +470,57 @@ struct Slice : public ArrayBase<Slice<T>, T> {
     UZ count;
 };
 
+template <typename T>
+struct LinkedList {
+    struct Node {
+        Node *prev;
+        Node *next;
+        T value;
+    };
+
+    static LinkedList alloc(Allocator *allocator) {
+        LinkedList<T> list{};
+        list.allocator = allocator;
+        return list;
+    }
+
+    void prepend(const T& value) {
+        Node *node = allocator->alloc<Node>();
+        node->value = value;
+
+        if (head == nullptr) {
+            OK_ASSERT(tail == nullptr);
+            head = node;
+            tail = node;
+            return;
+        }
+
+        node->next = head;
+        head->prev = node;
+        head = node;
+    }
+
+    void append(const T& value) {
+        Node *node = allocator->alloc<Node>();
+        node->value = value;
+
+        if (tail == nullptr) {
+            OK_ASSERT(head == nullptr);
+            head = node;
+            tail = node;
+            return;
+        }
+
+        node->prev = tail;
+        tail->next = node;
+        tail = node;
+    }
+
+    Allocator *allocator;
+    Node *head;
+    Node *tail;
+};
+
 // char predicates
 bool is_whitespace(char);
 bool is_digit(char);

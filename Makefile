@@ -1,5 +1,5 @@
 SMOKE_TEST = tests/smoke.cpp
-TEST_FILES = tests/arena.test.o tests/string-view.test.o tests/string.test.o tests/fixed-buffer-allocator.test.o tests/to-string.test.o tests/list.test.o tests/hash.test.o tests/file.test.o tests/parse-int64.test.o tests/optional.test.o tests/align.test.o tests/command.test.o
+TEST_FILES = tests/arena.test.o tests/string-view.test.o tests/string.test.o tests/fixed-buffer-allocator.test.o tests/to-string.test.o tests/list.test.o tests/hash.test.o tests/file.test.o tests/parse-int64.test.o tests/optional.test.o tests/align.test.o tests/command.test.o tests/linked-list.test.o
 
 CXXFLAGS += -std=c++20 -Og -g -Wall -Wextra -Werror -pedantic
 
