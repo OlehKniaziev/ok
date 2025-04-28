@@ -892,8 +892,12 @@ struct Table {
     template <typename K>
     bool has(const K& key) const;
 
-
     static constexpr UZ DEFAULT_CAPACITY = 47;
+
+    inline void clear() {
+        count = 0;
+        memset(meta, 0, sizeof(meta[0]) * capacity);
+    }
 
     inline U8 load_percentage() const {
         return (U8)((double)(count * 100) / (double)capacity);
