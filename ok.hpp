@@ -1342,6 +1342,7 @@ struct File {
     };
 
     static Optional<OpenError> open(File* out, const char* path);
+    static Optional<OpenError> open(File* out, StringView path);
 
     void seek_start() const;
     off_t seek_end() const;
@@ -1636,6 +1637,14 @@ Optional<File::OpenError> File::open(File* out, const char* path) {
     out->path = path;
 
     return {};
+}
+
+Optional<File::OpenError> File::open(File* out, StringView path) {
+    // FIXME: Temporary allocation in potentially multi-threaded context.
+    char* path_cstr = temp_allocator->alloc<char>(path.count + 1);
+    memcpy(path_cstr, path.data, path.count);
+    path_cstr[path.count] = '\0';
+    return File::open(out, path_cstr);
 }
 
 static inline off_t _lseek(int fd, off_t offset, int whence) {
