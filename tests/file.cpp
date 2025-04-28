@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #define OK_IMPLEMENTATION
 #include "../ok.hpp"
 
@@ -30,7 +32,7 @@ int main() {
 
     String s = String::from(buffer);
 
-    OK_ASSERT(s.starts_with("#define OK_IMPLEMENTATION"_sv));
+    OK_ASSERT(s.starts_with("#define _CRT_SECURE_NO_WARNINGS"_sv));
 
     const char* file_contents_cstr = read_file_to_cstr(__FILE__);
 
