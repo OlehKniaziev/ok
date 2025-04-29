@@ -1338,7 +1338,7 @@ bool Set<T>::has(const T& elem) const {
     return false;
 }
 
-// filesystem API
+// Filesystem API
 struct File {
     enum class OpenError {
         ACCESS_DENIED,
@@ -1359,18 +1359,26 @@ struct File {
         IO_ERROR,
     };
 
+    enum class WriteError {
+        NOT_ALLOWED,
+        OUT_OF_SPACE,
+        BAD_DATA,
+    };
+
     static Optional<OpenError> open(File* out, const char* path);
     static Optional<OpenError> open(File* out, StringView path);
 
     static const char* error_string(OpenError);
     static const char* error_string(ReadError);
+    static const char* error_string(WriteError);
 
     void seek_start() const;
     off_t seek_end() const;
 
     Optional<ReadError> read(U8* buf, UZ count, UZ* n_read);
-
     Optional<ReadError> read_full(Allocator* a, List<U8>* out);
+
+    Optional<WriteError> write(Slice<U8> data);
 
     UZ size() const;
 
@@ -1677,6 +1685,13 @@ const char* File::error_string(File::ReadError error) {
     }
 }
 
+const char* File::error_string(File::WriteError error) {
+    switch (error) {
+    case WriteError::NOT_ALLOWED:  return "operation not allowed";
+    case WriteError::OUT_OF_SPACE: return "out of space";
+    case WriteError::BAD_DATA:     return "bad data";
+    }
+}
 
 static inline off_t _lseek(int fd, off_t offset, int whence) {
 #if OK_UNIX
@@ -1740,6 +1755,26 @@ Optional<File::ReadError> File::read_full(Allocator* a, List<U8>* out) {
     out->count = n_read;
 
     return {};
+}
+
+static inline S64 _write(int fd, const void* buffer, UZ count) {
+#if OK_UNIX
+    return ::write(fd, buffer, count);
+#elif OK_WINDOWS
+    return ::_write(fd, buffer, (unsigned int)count);
+#endif // OK_UNIX
+}
+
+Optional<File::WriteError> File::write(Slice<U8> data) {
+    S64 ret = ok::_write(fd, (const void*)data.items, data.count);
+    if (ret != -1) return {};
+
+    switch (errno) {
+    case EBADF:  return WriteError::NOT_ALLOWED;
+    case ENOSPC: return WriteError::OUT_OF_SPACE;
+    case EINVAL: return WriteError::BAD_DATA;
+    default:     OK_UNREACHABLE();
+    }
 }
 
 // SUBPROCESS API IMPLEMENTATION
