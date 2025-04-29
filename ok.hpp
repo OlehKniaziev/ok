@@ -1344,6 +1344,9 @@ struct File {
     static Optional<OpenError> open(File* out, const char* path);
     static Optional<OpenError> open(File* out, StringView path);
 
+    static const char* error_string(OpenError);
+    static const char* error_string(ReadError);
+
     void seek_start() const;
     off_t seek_end() const;
 
@@ -1646,6 +1649,30 @@ Optional<File::OpenError> File::open(File* out, StringView path) {
     path_cstr[path.count] = '\0';
     return File::open(out, path_cstr);
 }
+
+const char* File::error_string(File::OpenError error) {
+    switch (error) {
+    case File::OpenError::ACCESS_DENIED:                    return "access denied";
+    case File::OpenError::INVALID_PATH:                     return "invalid file path";
+    case File::OpenError::IS_DIRECTORY:                     return "file is a directory";
+    case File::OpenError::TOO_MANY_SYMLINKS:                return "too many symlinks";
+    case File::OpenError::PROCESS_OPEN_FILES_LIMIT_REACHED: return "process open files limit has been reached";
+    case File::OpenError::SYSTEM_OPEN_FILES_LIMIT_REACHED:  return "system open files limit has been reached";
+    case File::OpenError::PATH_TOO_LONG:                    return "file path is too long";
+    case File::OpenError::KERNEL_OUT_OF_MEMORY:             return "kernel out of memory";
+    case File::OpenError::OUT_OF_SPACE:                     return "disk out of space";
+    case File::OpenError::IS_SOCKET:                        return "file is a socket";
+    case File::OpenError::FILE_TOO_BIG:                     return "file is too big";
+    case File::OpenError::READONLY_FILE:                    return "file is readonly";
+    }
+}
+
+const char* File::error_string(File::ReadError error) {
+    switch (error) {
+    case File::ReadError::IO_ERROR: return "I/O error";
+    }
+}
+
 
 static inline off_t _lseek(int fd, off_t offset, int whence) {
 #if OK_UNIX
