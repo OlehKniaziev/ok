@@ -12,4 +12,7 @@ int main() {
     OK_ASSERT("1"_sv < "2"_sv);
     OK_ASSERT("3"_sv > "2"_sv);
     OK_ASSERT("123"_sv != "122"_sv);
+
+    OK_ASSERT("hello"_sv.ends_with("lo"));
+    OK_ASSERT("hello"_sv.starts_with("hel"));
 }

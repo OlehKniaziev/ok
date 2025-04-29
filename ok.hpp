@@ -548,8 +548,11 @@ struct StringBase : public ArrayBase<Self, Char> {
         UZ count = self->get_count();
         if (suffix_count > count) return false;
 
-        for (UZ i = count - suffix_count; i < count; ++i) {
-            if ((*self)[i] != suffix[i]) return false;
+        UZ suffix_diff = count - suffix_count;
+
+        for (UZ i = suffix_diff; i < count; ++i) {
+            UZ suffix_idx = i - suffix_diff;
+            if ((*self)[i] != suffix[suffix_idx]) return false;
         }
 
         return true;
