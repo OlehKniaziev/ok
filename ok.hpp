@@ -695,7 +695,7 @@ struct String : public StringBase<String, char> {
         return data.count - 1;
     }
 
-    inline const char* get_items() const {
+    inline char* get_items() const {
         return data.items;
     }
 
