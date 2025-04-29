@@ -527,7 +527,68 @@ struct String;
 #define OK_SV_FMT "%.*s"
 #define OK_SV_ARG(sv) (int)(sv).count, reinterpret_cast<const char*>((sv).data)
 
-struct StringView {
+template <typename Self, typename Char>
+struct StringBase : public ArrayBase<Self, Char> {
+    inline bool starts_with(const char* prefix) const {
+        const Self *self = this->self_cast();
+        UZ prefix_count = strlen(prefix);
+        UZ count = self->get_count();
+        if (prefix_count > count) return false;
+
+        for (UZ i = 0; i < prefix_count; ++i) {
+            if ((*self)[i] != prefix[i]) return false;
+        }
+
+        return true;
+    }
+
+    inline bool ends_with(const char* suffix) const {
+        const Self *self = this->self_cast();
+        UZ suffix_count = strlen(suffix);
+        UZ count = self->get_count();
+        if (suffix_count > count) return false;
+
+        for (UZ i = count - suffix_count; i < count; ++i) {
+            if ((*self)[i] != suffix[i]) return false;
+        }
+
+        return true;
+    }
+
+    template <typename Other, typename OtherChar>
+    inline constexpr auto operator <=>(const StringBase<Other, OtherChar>& other) const {
+        const Self *self = this->self_cast();
+        UZ self_count = self->get_count();
+        UZ other_count = other.self_cast()->get_count();
+
+        if (self_count < other_count)      return -1;
+        else if (other_count > self_count) return 1;
+
+        for (UZ i = 0; i < self_count; ++i) {
+            if ((*self)[i] < other[i]) return -1;
+            if ((*self)[i] > other[i]) return 1;
+        }
+
+        return 0;
+    }
+
+    template <typename Other, typename OtherChar>
+    inline constexpr bool operator ==(const StringBase<Other, OtherChar>& other) const {
+        const Self *self = this->self_cast();
+        UZ self_count = self->get_count();
+        UZ other_count = other.self_cast()->get_count();
+
+        if (self_count != other_count) return false;
+
+        for (UZ i = 0; i < self_count; ++i) {
+            if ((*self)[i] != other[i]) return false;
+        }
+
+        return true;
+    }
+};
+
+struct StringView : public StringBase<StringView, const char> {
     StringView() = default;
 
     constexpr StringView(const char* data, UZ count) : data{data}, count{count} {}
@@ -544,34 +605,12 @@ struct StringView {
         return view(start, count);
     }
 
-    inline constexpr auto operator <=>(const StringView& other) const {
-        UZ min_length = min(count, other.count);
-        for (UZ i = 0; i < min_length; ++i) {
-            if (data[i] < other[i]) return -1;
-            if (data[i] > other[i]) return 1;
-        }
-        return 0;
+    inline UZ get_count() const {
+        return count;
     }
 
-    inline bool operator ==(const StringView rhs) const {
-        if (count != rhs.count) return false;
-
-        for (UZ i = 0; i < count; i++) {
-            if (data[i] != rhs.data[i]) return false;
-        }
-
-        return true;
-    }
-
-    bool operator ==(const String& string) const;
-
-    inline bool operator!=(const String& string) const {
-        return !(*this == string);
-    }
-
-    inline const char& operator [](UZ idx) const {
-        OK_ASSERT(idx < count);
-        return data[idx];
+    inline const char* get_items() const {
+        return data;
     }
 
     const char* data;
@@ -584,7 +623,7 @@ constexpr StringView operator ""_sv(const char* cstr, UZ len) {
 }
 };
 
-struct String {
+struct String : public StringBase<String, char> {
     static constexpr char NULL_CHAR = '\0';
     static constexpr UZ DEFAULT_CAPACITY = 7;
 
@@ -602,8 +641,6 @@ struct String {
     void append(String);
 
     void format_append(const char*, ...) OK_ATTRIBUTE_PRINTF(2, 3);
-
-    bool starts_with(StringView);
 
     inline const char* cstr() const {
         return reinterpret_cast<const char*>(data.items);
@@ -653,32 +690,13 @@ struct String {
         return data.count - 1;
     }
 
-    inline bool operator ==(const String& other) const {
-        return view() == other.view();
+    inline UZ get_count() const {
+        OK_ASSERT(data.count != 0);
+        return data.count - 1;
     }
 
-    inline bool operator ==(const StringView& other) const {
-        return view() == other;
-    }
-
-    inline bool operator !=(const String& other) const {
-        return !(*this == other);
-    }
-
-    inline bool operator !=(const StringView& other) const {
-        return !(*this == other);
-    }
-
-    inline char& operator [](UZ idx) {
-        OK_ASSERT(idx < count());
-
-        return data.items[idx];
-    }
-
-    inline const char& operator [](UZ idx) const {
-        OK_ASSERT(idx < count());
-
-        return data.items[idx];
+    inline const char* get_items() const {
+        return data.items;
     }
 
     List<char> data;
@@ -1588,21 +1606,7 @@ void String::format_append(const char* fmt, ...) {
     data.count += required_buf_size;
 }
 
-bool String::starts_with(StringView prefix) {
-    if (count() < prefix.count) return false;
-
-    for (UZ i = 0; i < prefix.count; i++) {
-        if (data.items[i] != prefix.data[i]) return false;
-    }
-
-    return true;
-}
-
 // STRING VIEW IMPLEMENTATION
-bool StringView::operator ==(const String& string) const {
-    return *this == string.view();
-}
-
 String StringView::to_string(Allocator* a) const {
     return String::alloc(a, data, count);
 }
