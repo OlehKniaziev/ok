@@ -1381,7 +1381,11 @@ struct File {
     Optional<ReadError> read(U8* buf, UZ count, UZ* n_read);
     Optional<ReadError> read_full(Allocator* a, List<U8>* out);
 
-    Optional<WriteError> write(Slice<U8> data);
+    Optional<WriteError> write(U8 *data, UZ count);
+
+    inline Optional<WriteError> write(Slice<U8> data) {
+        return write(data.items, data.count);
+    }
 
     UZ size() const;
 
@@ -1768,8 +1772,8 @@ static inline S64 _write(int fd, const void* buffer, UZ count) {
 #endif // OK_UNIX
 }
 
-Optional<File::WriteError> File::write(Slice<U8> data) {
-    S64 ret = ok::_write(fd, (const void*)data.items, data.count);
+Optional<File::WriteError> File::write(U8 *data, UZ count) {
+    S64 ret = ok::_write(fd, (const void*)data, count);
     if (ret != -1) return {};
 
     switch (errno) {
