@@ -1375,8 +1375,13 @@ struct File {
     static const char* error_string(ReadError);
     static const char* error_string(WriteError);
 
-    void seek_start() const;
-    off_t seek_end() const;
+    void seek_to(UZ offset);
+
+    inline void seek_start() {
+        return seek_to(0);
+    }
+
+    off_t seek_end();
 
     Optional<ReadError> read(U8* buf, UZ count, UZ* n_read);
     Optional<ReadError> read_full(Allocator* a, List<U8>* out);
@@ -1387,9 +1392,10 @@ struct File {
         return write(data.items, data.count);
     }
 
-    UZ size() const;
+    UZ size();
 
     int fd;
+    UZ offset;
     const char* path;
 };
 
@@ -1655,6 +1661,7 @@ Optional<File::OpenError> File::open(File* out, const char* path) {
         }
     }
 
+    out->offset = 0;
     out->fd = fd;
     out->path = path;
 
@@ -1708,21 +1715,22 @@ static inline off_t _lseek(int fd, off_t offset, int whence) {
 #endif // OK_UNIX
 }
 
-void File::seek_start() const {
-    off_t seek_res = _lseek(fd, 0, SEEK_SET);
-    OK_ASSERT(seek_res != (off_t)-1);
+void File::seek_to(UZ offset) {
+    this->offset = offset;
+    ok::_lseek(fd, offset, SEEK_SET);
 }
 
-off_t File::seek_end() const {
+off_t File::seek_end() {
     off_t seek_res = _lseek(fd, 0, SEEK_END);
     OK_ASSERT(seek_res != (off_t)-1);
-
+    offset = seek_res;
     return seek_res;
 }
 
-UZ File::size() const {
+UZ File::size() {
+    UZ offset = this->offset;
     off_t res = seek_end();
-    seek_start();
+    seek_to(offset);
     return res;
 }
 
@@ -1751,17 +1759,25 @@ Optional<File::ReadError> File::read(U8* buf, UZ count, UZ* n_read) {
 }
 
 Optional<File::ReadError> File::read_full(Allocator* a, List<U8>* out) {
-    UZ sz = size();
-    *out = List<U8>::alloc(a, sz);
+    UZ file_offset = offset;
 
+    UZ file_size = size();
+    *out = List<U8>::alloc(a, file_size);
+
+    Optional<ReadError> err{};
+
+    seek_start();
     UZ n_read;
-    auto err = read(out->items, sz, &n_read);
+    err = read(out->items, file_size, &n_read);
 
-    if (err.has_value()) return err;
+    if (err.has_value()) goto end;
 
     out->count = n_read;
 
-    return {};
+end:
+    seek_to(file_offset);
+
+    return err;
 }
 
 static inline S64 _write(int fd, const void* buffer, UZ count) {
