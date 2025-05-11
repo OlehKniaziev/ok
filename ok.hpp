@@ -284,6 +284,7 @@ struct ArenaAllocator : public Allocator {
 
     Region* head;
     Region* region_pool;
+    void* last_alloc_ptr;
 };
 
 // templates
@@ -1494,37 +1495,46 @@ ArenaAllocator::Region* ArenaAllocator::alloc_region(UZ region_size) {
 }
 
 void* ArenaAllocator::raw_alloc(UZ size) {
+    void* ptr;
+    UZ region_size;
+
     ArenaAllocator::Region* region_head = this->head;
 
     size = align_up(size, sizeof(void*));
 
-    while (region_head) {
+    while (region_head != nullptr) {
         if (region_head->size - region_head->off >= size) {
-            void* ptr = (void*)((U8*)region_head->data + region_head->off);
+            ptr = (void*)((U8*)region_head->data + region_head->off);
             region_head->off += size;
-            return ptr;
+            goto end;
         }
 
         region_head = region_head->next;
     }
 
-    UZ region_size = align_up(size, OK_PAGE_ALIGN);
+    region_size = align_up(size, OK_PAGE_ALIGN);
     region_head = alloc_region(region_size);
     region_head->next = this->head;
     this->head = region_head;
 
-    void* ptr = (void*)((U8*)region_head->data + region_head->off);
+    ptr = (void*)((U8*)region_head->data + region_head->off);
     region_head->off += size;
+
+end:
+    last_alloc_ptr = ptr;
     return ptr;
 }
 
 void ArenaAllocator::raw_dealloc(void* ptr, UZ size) {
-    OK_UNUSED(ptr);
-    OK_UNUSED(size);
+    if (last_alloc_ptr == ptr) {
+        size = align_up(size, sizeof(void*));
+        head->off -= size;
+    }
 }
 
 void* ArenaAllocator::raw_resize(void* old_ptr, UZ old_size, UZ new_size) {
-    auto* new_ptr = raw_alloc(new_size);
+    raw_dealloc(old_ptr, old_size);
+    void* new_ptr = raw_alloc(new_size);
     memcpy(new_ptr, old_ptr, old_size);
     return new_ptr;
 }
