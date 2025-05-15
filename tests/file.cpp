@@ -7,7 +7,10 @@ using namespace ok;
 
 char* read_file_to_cstr(const char* filepath) {
     FILE* f = fopen(filepath, "r");
-    OK_ASSERT(f);
+    if (f == nullptr) {
+        perror("failed to execute fopen");
+        abort();
+    }
 
     void* mem = static_allocator->raw_alloc(50'000'000);
     size_t nread = fread(mem, sizeof(char), 50'000'000, f);
@@ -20,11 +23,22 @@ char* read_file_to_cstr(const char* filepath) {
 }
 
 int main() {
+    const char* test_file_path = "./tests/file.txt";
+
     File file;
 
-    auto open_err = File::open(&file, __FILE__);
-    OK_ASSERT(!open_err.has_value());
-    OK_ASSERT(strcmp(file.path, __FILE__) == 0);
+    auto open_err = File::open(&file, test_file_path);
+    if (open_err) {
+        printf("could not open file: %s\n", File::error_string(temp_allocator, open_err.value).cstr());
+        abort();
+    }
+    OK_ASSERT(strcmp(file.path, test_file_path) == 0);
+
+    Optional<File::WriteError> write_err = file.write("HELLO!"_sv);
+    if (write_err) {
+        printf("could not write to file: %s\n", File::error_string(temp_allocator, write_err.value).cstr());
+        abort();
+    }
 
     List<uint8_t> buffer;
     auto read_err = file.read_full(temp_allocator, &buffer);
@@ -32,9 +46,11 @@ int main() {
 
     String s = String::from(buffer);
 
-    OK_ASSERT(s.starts_with("#define _CRT_SECURE_NO_WARNINGS"));
+    OK_ASSERT(s.starts_with("HELLO!"));
 
-    const char* file_contents_cstr = read_file_to_cstr(__FILE__);
+    OK_ASSERT(!file.close());
+
+    const char* file_contents_cstr = read_file_to_cstr(test_file_path);
 
     OK_ASSERT(s == StringView{file_contents_cstr});
 
