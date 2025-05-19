@@ -1878,7 +1878,7 @@ Optional<File::ReadError> File::read_full(Allocator* a, List<U8>* out) {
     Optional<ReadError> err{};
 
     seek_start();
-    UZ n_read;
+    UZ n_read = 0;
     err = read(out->items, file_size, &n_read);
 
     if (err.has_value()) goto end;
