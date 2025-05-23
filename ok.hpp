@@ -1761,7 +1761,7 @@ Optional<File::OpenError> File::open(File* out, StringView path) {
 String File::error_string(Allocator* allocator, File::OpenError error) {
     switch (error) {
     case File::OpenError::ACCESS_DENIED:                    return String::alloc(allocator, "access denied");
-    case File::OpenError::INVALID_PATH:                     return "invalid file path";
+    case File::OpenError::INVALID_PATH:                     return String::alloc(allocator, "invalid file path");
     case File::OpenError::IS_DIRECTORY:                     return String::alloc(allocator, "file is a directory");
     case File::OpenError::TOO_MANY_SYMLINKS:                return String::alloc(allocator, "too many symlinks");
     case File::OpenError::PROCESS_OPEN_FILES_LIMIT_REACHED: return String::alloc(allocator, "process open files limit has been reached");
@@ -1773,12 +1773,16 @@ String File::error_string(Allocator* allocator, File::OpenError error) {
     case File::OpenError::FILE_TOO_BIG:                     return String::alloc(allocator, "file is too big");
     case File::OpenError::READONLY_FILE:                    return String::alloc(allocator, "file is readonly");
     }
+
+    OK_UNREACHABLE();
 }
 
 String File::error_string(Allocator* allocator, File::ReadError error) {
     switch (error) {
     case File::ReadError::IO_ERROR: return String::alloc(allocator, "I/O error");
     }
+
+    OK_UNREACHABLE();
 }
 
 String File::error_string(Allocator* allocator, File::WriteError error) {
@@ -1787,6 +1791,8 @@ String File::error_string(Allocator* allocator, File::WriteError error) {
     case WriteError::OUT_OF_SPACE: return String::alloc(allocator, "out of space");
     case WriteError::BAD_DATA:     return String::alloc(allocator, "bad data");
     }
+
+    OK_UNREACHABLE();
 }
 
 #else
@@ -1849,7 +1855,7 @@ UZ File::size() {
 
 Optional<File::ReadError> File::read(U8* buf, UZ count, UZ* n_read) {
 #if OK_UNIX
-    S64 r = ok::_read(fd, buf, count);
+    S64 r = ::read(fd, buf, count);
 
     if (r < 0) {
         switch (errno) {
@@ -1893,7 +1899,7 @@ end:
 
 Optional<File::CloseError> File::close() const {
 #if OK_UNIX
-    int ret = close(fd);
+    int ret = ::close(fd);
     if (ret == 0) return {};
 
     switch (ret) {
@@ -1913,7 +1919,7 @@ Optional<File::CloseError> File::close() const {
 
 Optional<File::WriteError> File::write(U8* data, UZ count) {
 #if OK_UNIX
-    S64 ret = write(fd, (const void*)data.items, data.count);
+    S64 ret = ::write(fd, (const void*)data, count);
 
     if (ret != -1) return {};
 
