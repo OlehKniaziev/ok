@@ -922,9 +922,9 @@ struct Table {
         memset(meta, 0, sizeof(Meta) * capacity);
     }
 
-    inline Table<TKey, TValue> copy(Allocator* allocator) {
+    inline Table<TKey, TValue> copy(Allocator* copy_allocator) {
         UZ new_table_capacity = OK_TABLE_GROWTH_FACTOR(capacity);
-        Table<TKey, TValue> new_table = Table<TKey, TValue>::alloc(allocator, new_table_capacity);
+        Table<TKey, TValue> new_table = Table<TKey, TValue>::alloc(copy_allocator, new_table_capacity);
 
         for (UZ i = 0; i < capacity; i++) {
             if (OK_TAB_IS_OCCUPIED(meta[i])) {
@@ -1833,13 +1833,13 @@ String File::error_string(Allocator* allocator, DWORD error) {
 
 #endif // Platform check.
 
-void File::seek_to(U64 offset) {
-    this->offset = offset;
+void File::seek_to(U64 seek_offset) {
+    this->offset = seek_offset;
 #if OK_UNIX
-    OK_ASSERT(lseek(fd, offset, SEEK_SET) != (off_t)-1);
+    OK_ASSERT(lseek(fd, seek_offset, SEEK_SET) != (off_t)-1);
 #else
     LONG higher_order_bits = 0;
-    DWORD lower_order_bits = SetFilePointer(handle, offset, &higher_order_bits, FILE_BEGIN);
+    DWORD lower_order_bits = SetFilePointer(handle, (LONG)seek_offset, &higher_order_bits, FILE_BEGIN);
     OK_ASSERT(lower_order_bits != INVALID_SET_FILE_POINTER);
 #endif // Platform check.
 }
@@ -1855,16 +1855,15 @@ U64 File::seek_end() {
     DWORD lower_order_bits = SetFilePointer(handle, 0, &higher_order_bits, FILE_END);
     OK_ASSERT(lower_order_bits != INVALID_SET_FILE_POINTER);
 
-    U64 offset = (U64)higher_order_bits << 32 | (U64)lower_order_bits;
-    this->offset = offset;
+    offset = (U64)higher_order_bits << 32 | (U64)lower_order_bits;
     return offset;
 #endif // Platform check.
 }
 
 UZ File::size() {
-    UZ offset = this->offset;
-    off_t res = seek_end();
-    seek_to(offset);
+    UZ prev_offset = this->offset;
+    U64 res = seek_end();
+    seek_to(prev_offset);
     return res;
 }
 
@@ -1884,7 +1883,7 @@ Optional<File::ReadError> File::read(U8* buf, UZ count, UZ* n_read) {
 
     return {};
 #elif OK_WINDOWS
-    bool ok = ReadFile(handle, (void*)buf, count, (LPDWORD)n_read, nullptr);
+    bool ok = ReadFile(handle, (void*)buf, (DWORD)count, (LPDWORD)n_read, nullptr);
     if (!ok) return GetLastError();
     return {};
 #endif // Platform check
@@ -1955,7 +1954,7 @@ Optional<File::WriteError> File::write(U8* data, UZ count) {
     DWORD n_written = 0;
     bool ok = WriteFile(handle,
                         data,
-                        count,
+                        (DWORD)count,
                         &n_written,
                         nullptr);
 
