@@ -1436,7 +1436,7 @@ struct File {
     const char* path;
 };
 
-// procedures
+// Procedures.
 void println(const char*);
 void println(StringView);
 void println(String);
@@ -1451,6 +1451,21 @@ String to_string(Allocator*, S64);
 String to_string(Allocator*, U64);
 
 bool parse_int64(StringView, S64*);
+
+static inline F64 millis_timestamp() {
+#if OK_UNIX
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    return (F64)ts.tv_sec * 1000.0 + (F64)ts.tv_nsec / 1e6;
+#else
+    LARGE_INTEGER frequency_int = {};
+    QueryPerformanceFrequency(&frequency_int);
+    F64 frequency = (F64)frequency_int.QuadPart / 1000.0;
+    LARGE_INTEGER counter;
+    QueryPerformanceCounter(&counter);
+    return (F64)counter.QuadPart / frequency;
+#endif // Platform check.
+}
 
 #ifdef OK_IMPLEMENTATION
 
