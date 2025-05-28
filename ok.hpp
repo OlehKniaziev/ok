@@ -263,6 +263,12 @@ struct ArenaAllocator : public Allocator {
         return result;
     }
 
+    inline UZ capacity() const {
+        UZ result = 0;
+        for (Region* r = head; r != nullptr; r = r->next) result += r->size;
+        return result;
+    }
+
     inline void reserve(UZ bytes) {
         UZ available_bytes = avail();
 
