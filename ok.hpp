@@ -1458,6 +1458,19 @@ String to_string(Allocator*, U64);
 
 bool parse_int64(StringView, S64*);
 
+Optional<File::OpenError> create_temp_file(File* file);
+
+static inline U32 get_rand() {
+#if OK_UNIX
+    return (U32)rand();
+#else
+    U32 r = 0;
+    errno_t err = rand_s(&r);
+    OK_ASSERT(err == 0);
+    return r;
+#endif // Platform check.
+}
+
 static inline F64 millis_timestamp() {
 #if OK_UNIX
     struct timespec ts;
@@ -1716,7 +1729,7 @@ String StringView::to_string(Allocator* a) const {
 // FILESYSTEM API IMPLEMENTATION
 Optional<File::OpenError> File::open(File* out, const char* path) {
 #if OK_UNIX
-    int fd = ::open(path, O_RDWR);
+    int fd = ::open(path, O_RDWR | O_CREAT);
     int error = errno;
 
     if (fd < 0) {
@@ -1734,7 +1747,7 @@ Optional<File::OpenError> File::open(File* out, const char* path) {
         case EOVERFLOW:    return OpenError::FILE_TOO_BIG;
         case EROFS:        return OpenError::READONLY_FILE;
         case EFAULT:       OK_PANIC_FMT("Parameter 'path' (%p) is not mapped to the current process", (void*)path);
-        default:           OK_UNREACHABLE();
+        default:           OK_PANIC_FMT("Unexpected error: %s", strerror(error));
         }
     }
 
@@ -2257,6 +2270,26 @@ bool is_digit(char c) {
 
 bool is_alpha(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+}
+
+Optional<File::OpenError> create_temp_file(File* file) {
+#if OK_UNIX
+    U64 timestamp = millis_timestamp();
+
+    String file_path = String::alloc(temp_allocator, "/tmp/");
+    file_path.reserve(13);
+
+    for (U8 i = 0; i < 8; ++i) {
+        U8 c0 = (timestamp >> (i * 4)) & 15;
+        U8 c1 = (timestamp >> (64 - ((i + 1) * 4))) & 15;
+        U8 c = 'a' + (c0 ^ c1);
+        file_path.push(c);
+    }
+
+    return File::open(file, file_path.cstr());
+#else
+    OK_TODO();
+#endif // Platform check.
 }
 
 // HASHES IMPLEMENTATION
