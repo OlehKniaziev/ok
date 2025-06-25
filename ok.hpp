@@ -35,6 +35,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <climits>
+#include <ctime>
 
 #include <fcntl.h>
 #include <sys/types.h>
@@ -684,8 +685,8 @@ struct String : public StringBase<String, char> {
     }
 
     inline void push(char character) {
+        data[data.count - 1] = character;
         data.push(NULL_CHAR);
-        data[data.count - 2] = character;
     }
 
     inline void reserve(UZ chars) {
@@ -1373,7 +1374,7 @@ struct File {
     };
 
     enum class ReadError {
-        IO_ERROR,
+        IO,
     };
 
     enum class WriteError {
@@ -1387,6 +1388,16 @@ struct File {
         INTERRUPTED_BY_SIGNAL,
         IO,
         NOT_ENOUGH_SPACE,
+    };
+
+    enum class RemoveError {
+        ACCESS_DENIED,
+        CURRENTLY_IN_USE,
+        IO,
+        PATH_TOO_LONG,
+        DOES_NOT_EXIST,
+        KERNEL_OUT_OF_MEMORY,
+        READ_ONLY_FS,
     };
 #else
     using OpenError = DWORD;
@@ -1431,6 +1442,8 @@ struct File {
     }
 
     Optional<CloseError> close() const;
+
+    Optional<RemoveError> remove();
 
 #if OK_UNIX
     int fd;
@@ -1813,7 +1826,7 @@ String File::error_string(Allocator* allocator, File::OpenError error) {
 
 String File::error_string(Allocator* allocator, File::ReadError error) {
     switch (error) {
-    case File::ReadError::IO_ERROR: return String::alloc(allocator, "I/O error");
+    case File::ReadError::IO: return String::alloc(allocator, "I/O error");
     }
 
     OK_UNREACHABLE();
@@ -1892,7 +1905,7 @@ Optional<File::ReadError> File::read(U8* buf, UZ count, UZ* n_read) {
 
     if (r < 0) {
         switch (errno) {
-        case EIO: return ReadError::IO_ERROR;
+        case EIO: return ReadError::IO;
         case EFAULT: OK_PANIC_FMT("The buffer (%p) is mapped outside the current process", (void*)buf);
         default: OK_UNREACHABLE();
         }
@@ -1928,6 +1941,24 @@ end:
     seek_to(file_offset);
 
     return err;
+}
+
+Optional<File::RemoveError> File::remove() {
+    int res = ::remove(this->path);
+    if (res != -1)     return {};
+
+    switch (errno) {
+    case EPERM:
+    case EACCES:       return RemoveError::ACCESS_DENIED;
+    case EBUSY:        return RemoveError::CURRENTLY_IN_USE;
+    case EIO:          return RemoveError::IO;
+    case ENAMETOOLONG: return RemoveError::PATH_TOO_LONG;
+    case ENOTDIR:
+    case ENOENT:       return RemoveError::DOES_NOT_EXIST;
+    case ENOMEM:       return RemoveError::KERNEL_OUT_OF_MEMORY;
+    case EROFS:        return RemoveError::READ_ONLY_FS;
+    default: OK_UNREACHABLE();
+    }
 }
 
 Optional<File::CloseError> File::close() const {
