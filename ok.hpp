@@ -964,6 +964,20 @@ struct Hash<HashPtr<T>> {
     }
 };
 
+template <typename T>
+struct Hash<T*> {
+    static U64 hash(const T* ptr) {
+        return reinterpret_cast<U64>(ptr);
+    }
+};
+
+template <typename T>
+struct Hash<const T*> {
+    static U64 hash(const T* ptr) {
+        return reinterpret_cast<U64>(ptr);
+    }
+};
+
 template <>
 struct Hash<U32> {
     static U64 hash(const U32& val) {
