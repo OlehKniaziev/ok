@@ -54,6 +54,11 @@
     abort(); \
 } while (0)
 
+#define OK_TODO_MSG_FMT(msg, ...) do { \
+    fprintf(stderr, "%s:%d: TODO: " msg "\n", __FILE__, __LINE__, __VA_ARGS__); \
+    abort(); \
+} while (0)
+
 #define OK_UNUSED(arg) (void)(arg)
 
 #define OK_UNREACHABLE() do { \
