@@ -592,6 +592,20 @@ struct LinkedList {
         return list;
     }
 
+    Node* pop_front() {
+        if (head == nullptr) return nullptr;
+
+        Node *node = head;
+        if (head == tail) {
+            head = nullptr;
+            tail = nullptr;
+            return node;
+        }
+
+        head = head->next;
+        return node;
+    }
+
     void prepend(const T& value) {
         Node *node = allocator->alloc<Node>();
         node->value = value;
