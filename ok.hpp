@@ -1019,8 +1019,8 @@ struct Hash<U32> {
 };
 
 template <>
-struct Hash<UZ> {
-    static U64 hash(const UZ& val) {
+struct Hash<U64> {
+    static U64 hash(const U64& val) {
         return val;
     }
 };
