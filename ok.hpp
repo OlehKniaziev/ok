@@ -856,6 +856,15 @@ struct OptionalBase {
         return static_cast<const Self<T>*>(this);
     }
 
+    template <typename O>
+    bool operator ==(const OptionalBase<Self, O>& other) const {
+        auto* lhs = self_cast();
+        auto* rhs = other.self_cast();
+        if (!lhs->has_value() && !rhs->has_value()) return true;
+
+        return lhs->has_value() && rhs->has_value() && lhs->get_unchecked() == rhs->get_unchecked();
+    }
+
     explicit operator bool() const {
         return self_cast()->has_value();
     }
