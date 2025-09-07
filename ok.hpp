@@ -39,6 +39,8 @@
 
 #include <fcntl.h>
 #include <sys/types.h>
+
+#define OK_VSNPRINTF vsnprintf
 #endif // OK_NO_STDLIB
 
 #include <stdarg.h>
@@ -195,8 +197,6 @@ namespace ok {
 
     UZ strlen(const char *);
 
-    int vsnprintf(char *, UZ, const char *, va_list);
-
 #   ifndef OK_PAGE_SIZE
 #       define OK_PAGE_SIZE 4096
 #   endif // OK_PAGE_SIZE
@@ -204,6 +204,10 @@ namespace ok {
 #   ifndef OK_PAGE_ALIGN
 #       define OK_PAGE_ALIGN OK_PAGE_SIZE
 #   endif // OK_PAGE_ALIGN
+
+#   ifndef OK_VSNPRINTF
+#       error "you have to define `OK_VSNPRINTF` when compiling with `OK_NO_STDLIB`"
+#   endif // OK_VSNPRINTF
 
 #   ifndef OK_ALLOC_PAGE
 #       error "you have to define `OK_ALLOC_PAGE` when compiling with `OK_NO_STDLIB`"
@@ -1727,6 +1731,27 @@ static inline F64 millis_timestamp() {
 }
 
 #ifdef OK_IMPLEMENTATION
+#ifdef OK_NO_STDLIB
+    void *memcpy(void *dst, const void *src, UZ count) {
+        for (UZ i = 0; i < count; ++i) {
+            *((U8 *)dst + i) = *((U8 *)src + i);
+        }
+        return dst;
+    }
+
+    void *memset(void *ptr, U8 b, UZ c) {
+        for (UZ i = 0; i < c; ++i) {
+            *((U8*)ptr + i) = c;
+        }
+        return ptr;
+    }
+
+    UZ strlen(const char *s) {
+        UZ c = 0;
+        while (*(s + c)) ++c;
+        return c;
+    }
+#endif // OK_NO_STDLIB
 
 FixedBufferAllocator _temp_allocator_impl{};
 Allocator* temp_allocator = &_temp_allocator_impl;
@@ -1905,7 +1930,7 @@ String String::format(Allocator* a, const char* fmt, ...) {
     va_start(sprintf_args, fmt);
     {
         char* sprintf_buf = nullptr;
-        buf_size = vsnprintf(sprintf_buf, 0, fmt, sprintf_args);
+        buf_size = OK_VSNPRINTF(sprintf_buf, 0, fmt, sprintf_args);
         OK_ASSERT(buf_size != -1);
 
         buf_size += 1;
@@ -1916,7 +1941,7 @@ String String::format(Allocator* a, const char* fmt, ...) {
 
     va_start(sprintf_args, fmt);
     {
-        int bytes_written = vsnprintf((char*)buf.data.items, buf_size, fmt, sprintf_args);
+        int bytes_written = OK_VSNPRINTF((char*)buf.data.items, buf_size, fmt, sprintf_args);
         OK_ASSERT(bytes_written != -1);
     }
     va_end(sprintf_args);
@@ -1942,7 +1967,7 @@ void String::format_append(const char* fmt, ...) {
     va_start(sprintf_args, fmt);
     {
         char* sprintf_buf = nullptr;
-        required_buf_size = vsnprintf(sprintf_buf, 0, fmt, sprintf_args);
+        required_buf_size = OK_VSNPRINTF(sprintf_buf, 0, fmt, sprintf_args);
         OK_ASSERT(required_buf_size != -1);
     }
     va_end(sprintf_args);
@@ -1953,7 +1978,7 @@ void String::format_append(const char* fmt, ...) {
     va_start(sprintf_args, fmt);
     {
         char* buf = (char*)data.items + count();
-        int bytes_written = vsnprintf(buf, required_buf_size + 1, fmt, sprintf_args);
+        int bytes_written = OK_VSNPRINTF(buf, required_buf_size + 1, fmt, sprintf_args);
         OK_ASSERT(bytes_written != -1);
     }
     va_end(sprintf_args);
