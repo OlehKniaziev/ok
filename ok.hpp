@@ -91,8 +91,13 @@
     __builtin_trap(); \
 } while (0)
 
-#define OK_TODO_MSG_FMT(msg, ...) do { \
-    OK_LOG_ERROR("%s:%d: TODO: " msg "\n", __FILE__, __LINE__, __VA_ARGS__); \
+#define OK_TODO_MSG(msg) do { \
+    OK_LOG_ERROR("%s:%d: TODO: " msg "\n", __FILE__, __LINE__); \
+    __builtin_trap(); \
+} while (0)
+
+#define OK_TODO_MSG_FMT(fmt, ...) do { \
+    OK_LOG_ERROR("%s:%d: TODO: " fmt "\n", __FILE__, __LINE__, __VA_ARGS__); \
     __builtin_trap(); \
 } while (0)
 
