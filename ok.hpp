@@ -65,6 +65,8 @@
 
 #endif // OK_LOG
 
+#ifndef OK_STRIP_ASSERTIONS
+
 #ifndef OK_ASSERT
 #define OK_ASSERT(x) do { \
     if (!(x)) { \
@@ -73,6 +75,16 @@
     } \
 } while(0)
 #endif // OK_ASSERT
+#else
+#define OK_ASSERT(x)
+#endif // OK_DEBUG
+
+#define OK_VERIFY(x) do { \
+    if (!(x)) { \
+        OK_LOG_ERROR("%s:%d: Verification failed: %s\n", __FILE__, __LINE__, #x); \
+        __builtin_trap(); \
+    } \
+} while(0)
 
 #define OK_TODO() do { \
     OK_LOG_ERROR("%s:%d: TODO: Not implemented\n", __FILE__, __LINE__); \
