@@ -1716,32 +1716,20 @@ bool parse_int64(StringView, S64*);
 
 Optional<File::OpenError> create_temp_file(File* file);
 
-static inline U32 get_rand() {
-#ifndef OK_NOSTDLIB
-#if OK_UNIX
-    return (U32)rand();
-#elif OK_WINDOWS
-    U32 r = 0;
-    errno_t err = rand_s(&r);
-    OK_ASSERT(err == 0);
-    return r;
-#endif // Platform check.
-    OK_TODO();
-#endif // OK_NOSTDLIB
-}
+void seed_rand(U64);
+U32 get_rand();
 
-static inline F64 millis_timestamp() {
+static inline U64 nanos_timestamp() {
 #if OK_UNIX
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-    return (F64)ts.tv_sec * 1000.0 + (F64)ts.tv_nsec / 1e6;
+    return ts.tv_sec * 1'000'000'000ul + ts.tv_nsec;
 #elif OK_WINDOWS
-    LARGE_INTEGER frequency_int = {};
-    QueryPerformanceFrequency(&frequency_int);
-    F64 frequency = (F64)frequency_int.QuadPart / 1000.0;
+    LARGE_INTEGER frequency{};
+    QueryPerformanceFrequency(&frequency);
     LARGE_INTEGER counter;
     QueryPerformanceCounter(&counter);
-    return (F64)counter.QuadPart / frequency;
+    return counter.QuadPart / frequency.QuadPart * 1'000'000'000ul;
 #else
     OK_TODO();
 #endif // Platform check.
@@ -2590,9 +2578,35 @@ bool is_alpha(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 
+static bool _rand_seeded = false;
+
+void seed_rand(U64 seed) {
+#ifndef OK_NOSTDLIB
+    srand(seed);
+#else
+    OK_TODO();
+#endif // OK_NOSTDLIB
+}
+
+// NOTE(oleh): We should probably provide a way to generate cryptographically secure numbers and
+// leave this one for general purpose numbers.
+U32 get_rand() {
+#ifndef OK_NOSTDLIB
+    if (!_rand_seeded) {
+        U64 seed = nanos_timestamp();
+        seed_rand(seed);
+        _rand_seeded = true;
+    }
+
+    return rand();
+#else
+    OK_TODO();
+#endif // OK_NOSTDLIB
+}
+
 Optional<File::OpenError> create_temp_file(File* file) {
 #if OK_UNIX
-    U64 timestamp = millis_timestamp();
+    U64 timestamp = nanos_timestamp();
 
     String file_path = String::alloc(temp_allocator, "/tmp/");
     file_path.reserve(13);
