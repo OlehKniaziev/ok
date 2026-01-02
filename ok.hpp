@@ -917,9 +917,8 @@ struct String : public StringBase<String, char> {
 template <template <typename> class Self, typename T>
 struct OptionalBase {
     static Self<T> empty() {
-        U8 buf[sizeof(Self<T>)];
+        U8 buf[sizeof(Self<T>)] = {};
         Self<T> *opt = reinterpret_cast<Self<T> *>(buf);
-        opt->_has_value = false;
         return *opt;
     }
 
