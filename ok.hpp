@@ -304,8 +304,7 @@ struct Allocator {
     }
 };
 
-extern Allocator* temp_allocator;
-extern Allocator* static_allocator;
+Allocator *temp_allocator();
 
 struct FixedBufferAllocator : public Allocator {
     void* raw_alloc(UZ size) override;
@@ -1746,11 +1745,11 @@ static inline U64 nanos_timestamp() {
     }
 #endif // OK_NO_STDLIB
 
-FixedBufferAllocator _temp_allocator_impl{};
-Allocator* temp_allocator = &_temp_allocator_impl;
+static FixedBufferAllocator temp_allocator_impl{};
 
-ArenaAllocator _static_allocator_impl{};
-Allocator* static_allocator = &_static_allocator_impl;
+Allocator *temp_allocator() {
+    return &temp_allocator_impl;
+}
 
 static void _init_region(ArenaAllocator::Region* region, UZ size) {
     region->data = (U8*)OK_ALLOC_PAGE(size);
@@ -2045,7 +2044,7 @@ Optional<File::OpenError> File::open(File* out, const char* path) {
 
 Optional<File::OpenError> File::open(File* out, StringView path) {
     // FIXME: Temporary allocation in potentially multi-threaded context.
-    char* path_cstr = temp_allocator->alloc<char>(path.count + 1);
+    char* path_cstr = temp_allocator()->alloc<char>(path.count + 1);
     memcpy(path_cstr, path.data, path.count);
     path_cstr[path.count] = '\0';
     return File::open(out, path_cstr);
@@ -2589,14 +2588,14 @@ U32 get_rand() {
     return rand();
 #else
     OK_TODO();
-#endif // OK_NOSTDLIB
+#endif // OK_NO_STDLIB
 }
 
 Optional<File::OpenError> create_temp_file(File* file) {
 #if OK_UNIX
     U64 timestamp = nanos_timestamp();
 
-    String file_path = String::alloc(temp_allocator, "/tmp/");
+    String file_path = String::alloc(temp_allocator(), "/tmp/");
     file_path.reserve(13);
 
     for (U8 i = 0; i < 8; ++i) {
