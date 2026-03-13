@@ -1,6 +1,6 @@
 /** The code in this file is distributed under the following license:
 
-    Copyright 2025 Oleh Kniaziev
+    Copyright 2026 Oleh Kniaziev
 
     Redistribution and use in source and binary forms, with or without modification, are permitted
     provided that the following conditions are met:
