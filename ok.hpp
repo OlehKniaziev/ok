@@ -1687,7 +1687,7 @@ struct File {
     Optional<ReadError> read(U8* buf, UZ count, UZ* n_read);
     Optional<ReadError> read_full(Allocator* a, List<U8>* out);
 
-    Optional<WriteError> write(U8 *data, UZ count, UZ *n_written);
+    Optional<WriteError> write(const U8 *data, UZ count, UZ *n_written);
 
     inline Optional<WriteError> write(Slice<U8> data) {
         return write(data.items, data.count, nullptr);
@@ -2280,7 +2280,7 @@ Optional<File::CloseError> File::close() const {
 #endif // Platform check.
 }
 
-Optional<File::WriteError> File::write(U8* data, UZ count, UZ *n_written) {
+Optional<File::WriteError> File::write(const U8* data, UZ count, UZ *n_written) {
 #if OK_UNIX
     OK_VERIFY(data != nullptr);
 
