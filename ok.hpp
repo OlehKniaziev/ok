@@ -2291,7 +2291,6 @@ Optional<File::WriteError> File::write(const U8* data, UZ count, UZ *n_written) 
             *n_written = (UZ) ret;
         }
 
-        this->seek_to(this->offset);
         return {};
     }
 
