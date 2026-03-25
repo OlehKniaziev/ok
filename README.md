@@ -1,6 +1,7 @@
 # OK
 OK is a library that is meant to replace common use cases of the C++ standard library.
-It provides common features like custom allocators, a string type, and generic containers.
+It provides common features like custom allocators, generic containers, filesystem API,
+subprocess management, and other QoL stuff.
 
 ## Why use it
 The C++ standard library is bloated, weird, and has a lot of legacy cruft. This library aims to
@@ -25,9 +26,9 @@ Non-goals include:
 - [x] Allocator interface
 - [ ] UTF-8 strings
 - [ ] General-purpose allocator
-- [ ] Filesystem API
+- [x] Filesystem API
 - [ ] Network API
-- [ ] Subprocess API
+- [x] Subprocess API
 - [x] Linux support
 - [x] Windows support
 - [ ] MAC support
