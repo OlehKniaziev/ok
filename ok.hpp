@@ -1659,6 +1659,9 @@ struct File {
     static Optional<OpenError> open(File* out, const char* path);
     static Optional<OpenError> open(File* out, StringView path);
 
+    static bool exists(const char* path);
+    static bool exists(StringView path);
+
 #if OK_UNIX
     static File from_fd(int fd, const char *path) {
         return File{
@@ -2076,6 +2079,24 @@ Optional<File::OpenError> File::open(File* out, StringView path) {
     memcpy(path_cstr, path.data, path.count);
     path_cstr[path.count] = '\0';
     return File::open(out, path_cstr);
+}
+
+bool File::exists(const char* path) {
+#if OK_UNIX
+    return ::access(path, F_OK) == 0;
+#elif OK_WINDOWS
+    DWORD attrs = GetFileAttributesA(path);
+    return attrs != INVALID_FILE_ATTRIBUTES;
+#else
+    OK_TODO();
+#endif
+}
+
+bool File::exists(StringView path) {
+    char* path_cstr = temp_allocator()->alloc<char>(path.count + 1);
+    memcpy(path_cstr, path.data, path.count);
+    path_cstr[path.count] = '\0';
+    return File::exists(path_cstr);
 }
 
 #if OK_UNIX
