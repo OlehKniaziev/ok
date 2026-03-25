@@ -307,6 +307,9 @@ struct Allocator {
         result[len] = '\0';
         return result;
     }
+
+    template <typename T>
+    Slice<T> alloc_slice(UZ);
 };
 
 Allocator *temp_allocator();
@@ -561,6 +564,12 @@ struct Slice : public ArrayBase<Slice<T>, T> {
     T* items;
     UZ count;
 };
+
+template <typename T>
+Slice<T> Allocator::alloc_slice(UZ count) {
+    T* ptr = alloc<T>(count);
+    return Slice<T>{ptr, count};
+}
 
 template <typename T>
 struct MultiListBase {
