@@ -1455,7 +1455,9 @@ Table<K, V> Table<K, V>::alloc(Allocator* a, UZ capacity) {
 template <typename K, typename V>
 void Table<K, V>::put(const K& key, const V& value) {
     if (load_percentage() >= 70) {
-        *this = copy(allocator);
+        Table<K, V> copied = copy(allocator);
+        this->dealloc();
+        *this = copied;
     }
 
     U64 idx = Hash<K>::hash(key) % capacity;
