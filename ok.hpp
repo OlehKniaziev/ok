@@ -505,7 +505,7 @@ struct List : public ArrayBase<List<T>, T> {
     inline List<Dest> cast() {
         List<Dest> list;
         list.allocator = allocator;
-        list.items = (Dest*)items;
+        list.items = reinterpret_cast<Dest*>(items);
         list.count = count;
         list.capacity = capacity;
         return list;
