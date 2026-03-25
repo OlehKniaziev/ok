@@ -2017,7 +2017,7 @@ String StringView::to_string(Allocator* a) const {
 // FILESYSTEM API IMPLEMENTATION
 Optional<File::OpenError> File::open(File* out, const char* path) {
 #if OK_UNIX
-    int fd = ::open(path, O_RDWR | O_CREAT);
+    int fd = ::open(path, O_RDWR | O_CREAT, 0666);
     int error = errno;
 
     if (fd < 0) {
