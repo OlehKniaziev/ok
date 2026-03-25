@@ -516,6 +516,13 @@ struct List : public ArrayBase<List<T>, T> {
         return items[--count];
     }
 
+    void dealloc() {
+        if (allocator != nullptr) {
+            allocator->dealloc<T>(items, capacity);
+            memset(this, 0, sizeof(*this));
+        }
+    }
+
     T* items;
     UZ count;
     UZ capacity;
@@ -921,6 +928,10 @@ struct String : public StringBase<String, char> {
         return data.items;
     }
 
+    void dealloc() {
+        data.dealloc();
+    }
+
     List<char> data;
 };
 
@@ -1182,6 +1193,16 @@ struct Table {
 
     inline U8 load_percentage() const {
         return (U8)((double)(count * 100) / (double)capacity);
+    }
+
+    void dealloc() {
+        if (allocator == nullptr) return;
+
+        allocator->dealloc(meta, capacity);
+        allocator->dealloc(keys, capacity);
+        allocator->dealloc(values, capacity);
+
+        memset(this, 0, sizeof(this));
     }
 
     TKey* keys;
