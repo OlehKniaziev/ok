@@ -1241,7 +1241,7 @@ struct Table {
         allocator->dealloc(keys, capacity);
         allocator->dealloc(values, capacity);
 
-        memset(this, 0, sizeof(this));
+        memset(this, 0, sizeof(*this));
     }
 
     TKey* keys;
