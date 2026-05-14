@@ -4,7 +4,7 @@
 using namespace ok;
 
 int main() {
-    Allocator* a = temp_allocator;
+    Allocator* a = temp_allocator();
 
     const char* hello = "hello";
 

@@ -12,7 +12,9 @@ char* read_file_to_cstr(const char* filepath) {
         abort();
     }
 
-    void* mem = static_allocator->raw_alloc(50'000'000);
+    static ArenaAllocator arena{};
+
+    void* mem = arena.raw_alloc(50'000'000);
     size_t nread = fread(mem, sizeof(char), 50'000'000, f);
 
     OK_ASSERT(nread != 0);
@@ -29,19 +31,19 @@ int main() {
 
     auto open_err = File::open(&file, test_file_path);
     if (open_err) {
-        printf("could not open file: %s\n", File::error_string(temp_allocator, open_err.value).cstr());
+        printf("could not open file: %s\n", File::error_string(temp_allocator(), open_err.value).cstr());
         abort();
     }
     OK_ASSERT(strcmp(file.path, test_file_path) == 0);
 
     Optional<File::WriteError> write_err = file.write("HELLO!"_sv);
     if (write_err) {
-        printf("could not write to file: %s\n", File::error_string(temp_allocator, write_err.value).cstr());
+        printf("could not write to file: %s\n", File::error_string(temp_allocator(), write_err.value).cstr());
         abort();
     }
 
     List<uint8_t> buffer;
-    auto read_err = file.read_full(temp_allocator, &buffer);
+    auto read_err = file.read_full(temp_allocator(), &buffer);
     OK_ASSERT(!read_err.has_value());
 
     String s = String::from(buffer);

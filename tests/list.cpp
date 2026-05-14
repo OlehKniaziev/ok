@@ -6,7 +6,7 @@ using namespace ok;
 int main() {
     size_t ints_cap = 90;
 
-    List<int> ints = List<int>::alloc(temp_allocator, ints_cap);
+    List<int> ints = List<int>::alloc(temp_allocator(), ints_cap);
 
     for (size_t i = 0; i < ints_cap; ++i) {
         ints.push(i);
