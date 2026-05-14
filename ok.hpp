@@ -1155,18 +1155,27 @@ struct Table {
 #define OK_SET_GROWTH_FACTOR OK_TABLE_GROWTH_FACTOR
 
 template <typename T>
-struct Set {
+struct HashSet {
     using Meta = U8;
 
     static constexpr UZ DEFAULT_CAPACITY = 47;
 
-    static Set<T> alloc(Allocator* a, UZ capacity = DEFAULT_CAPACITY);
+    static HashSet<T> alloc(Allocator* a, UZ capacity = DEFAULT_CAPACITY);
 
     void put(const T& elem);
     bool has(const T& elem) const;
 
-    inline U8 load_percentage() const {
+    U8 load_percentage() const {
         return (U8)(100.0 * (double)count / (double)capacity);
+    }
+
+    void dealloc() {
+        if (allocator == nullptr) return;
+
+        allocator->dealloc(values, capacity);
+        allocator->dealloc(meta, capacity);
+
+        memset(this, 0, sizeof(this));
     }
 
     Allocator* allocator;
@@ -1564,8 +1573,8 @@ bool Table<TKey, TValue>::remove(const TKey& key) {
 
 // SET IMPLEMENTATION
 template <typename T>
-Set<T> Set<T>::alloc(Allocator* a, UZ capacity) {
-    Set<T> set;
+HashSet<T> HashSet<T>::alloc(Allocator* a, UZ capacity) {
+    HashSet<T> set;
     set.allocator = a;
     set.count = 0;
     set.capacity = capacity;
@@ -1575,9 +1584,9 @@ Set<T> Set<T>::alloc(Allocator* a, UZ capacity) {
 }
 
 template <typename T>
-void Set<T>::put(const T& elem) {
+void HashSet<T>::put(const T& elem) {
     if (load_percentage() >= 70) {
-        auto new_set = Set<T>::alloc(allocator, OK_SET_GROWTH_FACTOR(capacity));
+        auto new_set = HashSet<T>::alloc(allocator, OK_SET_GROWTH_FACTOR(capacity));
 
         for (UZ i = 0; i < capacity; i++) {
             if (OK_TAB_IS_FREE(meta[i])) {
@@ -1610,7 +1619,7 @@ void Set<T>::put(const T& elem) {
 }
 
 template <typename T>
-bool Set<T>::has(const T& elem) const {
+bool HashSet<T>::has(const T& elem) const {
     U64 hash = Hash<T>::hash(elem);
     U64 idx = hash;
 
