@@ -990,14 +990,6 @@ U64 fnv1(StringView);
 };
 
 template <typename T>
-struct Hash {
-    static U64 hash(const T& value) {
-        // NOTE(oleh): Just make this a function, not a method.
-        return value.ok_hash_value();
-    }
-};
-
-template <typename T>
 struct HashPtr {
     HashPtr(const T* v) : value{v} {}
     // @Dead
@@ -1010,58 +1002,32 @@ struct HashPtr {
     const T* value;
 };
 
-// NOTE(oleh): Remove these all in favor of `ok_hash_value`.
-
 // Default hash implementations
-// NOTE(oleh): Is this even needed?
-template <typename T>
-struct Hash<HashPtr<T>> {
-    static U64 hash(const HashPtr<T>& ptr) {
-        return Hash<T>::hash(*ptr.value);
-    }
-};
+
+static inline U64 ok_hash_value(const void* ptr) {
+    return reinterpret_cast<U64>(ptr);
+}
 
 template <typename T>
-struct Hash<T*> {
-    static U64 hash(const T* ptr) {
-        return reinterpret_cast<U64>(ptr);
-    }
-};
+static inline U64 ok_hash_value(HashPtr<T> ptr) {
+    return ok_hash_value(ptr.value);
+}
 
-template <typename T>
-struct Hash<const T*> {
-    static U64 hash(const T* ptr) {
-        return reinterpret_cast<U64>(ptr);
-    }
-};
+static inline U64 ok_hash_value(U32 val) {
+    return val;
+}
 
-template <>
-struct Hash<U32> {
-    static U64 hash(const U32& val) {
-        return val;
-    }
-};
+static inline U64 ok_hash_value(U64 val) {
+    return val;
+}
 
-template <>
-struct Hash<U64> {
-    static U64 hash(const U64& val) {
-        return val;
-    }
-};
+static inline U64 ok_hash_value(StringView sv) {
+    return ::ok::hash::fnv1(sv);
+}
 
-template <>
-struct Hash<StringView> {
-    static U64 hash(StringView sv) {
-        return ::ok::hash::fnv1(sv);
-    }
-};
-
-template <>
-struct Hash<String> {
-    static U64 hash(String string) {
-        return ::ok::hash::fnv1(string.view());
-    }
-};
+static inline U64 ok_hash_value(String string) {
+    return ::ok::hash::fnv1(string.view());
+}
 
 template <typename T>
 bool operator ==(const HashPtr<T>& lhs, const HashPtr<T>& rhs);
@@ -1408,7 +1374,7 @@ void Table<K, V>::put(const K& key, const V& value) {
         *this = copied;
     }
 
-    U64 idx = Hash<K>::hash(key) % capacity;
+    U64 idx = ok_hash_value(key) % capacity;
 
     while (true) {
         if (OK_TAB_IS_FREE(meta[idx])) {
@@ -1431,7 +1397,7 @@ void Table<K, V>::put(const K& key, const V& value) {
 
 template <typename K, typename V>
 Optional<V> Table<K, V>::get(const K& key) const {
-    U64 idx = Hash<K>::hash(key) % capacity;
+    U64 idx = ok_hash_value(key) % capacity;
     U64 initial_idx = idx;
 
     do {
@@ -1448,7 +1414,7 @@ Optional<V> Table<K, V>::get(const K& key) const {
 template <typename TKey, typename TValue>
 template <typename K>
 Optional<TValue> Table<TKey, TValue>::get(const K& key) const {
-    U64 idx = Hash<K>::hash(key) % capacity;
+    U64 idx = ok_hash_value(key) % capacity;
     U64 initial_idx = idx;
 
     do {
@@ -1464,7 +1430,7 @@ Optional<TValue> Table<TKey, TValue>::get(const K& key) const {
 
 template <typename K, typename V>
 Optional<V&> Table<K, V>::get_ref(const K& key) {
-    U64 idx = Hash<K>::hash(key) % capacity;
+    U64 idx = ok_hash_value(key) % capacity;
     U64 initial_idx = idx;
 
     do {
@@ -1480,7 +1446,7 @@ Optional<V&> Table<K, V>::get_ref(const K& key) {
 
 template <typename K, typename V>
 Optional<const V&> Table<K, V>::get_ref(const K& key) const {
-    U64 idx = Hash<K>::hash(key) % capacity;
+    U64 idx = ok_hash_value(key) % capacity;
     U64 initial_idx = idx;
 
     do {
@@ -1497,7 +1463,7 @@ Optional<const V&> Table<K, V>::get_ref(const K& key) const {
 template <typename TKey, typename TValue>
 template <typename K>
 Optional<TValue&> Table<TKey, TValue>::get_ref(const K& key) {
-    U64 idx = Hash<K>::hash(key) % capacity;
+    U64 idx = ok_hash_value(key) % capacity;
     U64 initial_idx = idx;
 
     do {
@@ -1514,7 +1480,7 @@ Optional<TValue&> Table<TKey, TValue>::get_ref(const K& key) {
 template <typename TKey, typename TValue>
 template <typename K>
 Optional<const TValue&> Table<TKey, TValue>::get_ref(const K& key) const {
-    U64 idx = Hash<K>::hash(key) % capacity;
+    U64 idx = ok_hash_value(key) % capacity;
     U64 initial_idx = idx;
 
     do {
@@ -1530,7 +1496,7 @@ Optional<const TValue&> Table<TKey, TValue>::get_ref(const K& key) const {
 
 template <typename K, typename V>
 bool Table<K, V>::has(const K& key) const {
-    U64 idx = Hash<K>::hash(key) % capacity;
+    U64 idx = ok_hash_value(key) % capacity;
     U64 initial_idx = idx;
 
     do {
@@ -1547,7 +1513,7 @@ bool Table<K, V>::has(const K& key) const {
 template <typename TKey, typename TValue>
 template <typename K>
 bool Table<TKey, TValue>::has(const K& key) const {
-    U64 idx = Hash<K>::hash(key) % capacity;
+    U64 idx = ok_hash_value(key) % capacity;
     U64 initial_idx = idx;
 
     do {
@@ -1564,7 +1530,7 @@ bool Table<TKey, TValue>::has(const K& key) const {
 // NOTE(oleh): Should we call destructors here?
 template <typename TKey, typename TValue>
 bool Table<TKey, TValue>::remove(const TKey& key) {
-    U64 idx = Hash<TKey>::hash(key) % capacity;
+    U64 idx = ok_hash_value(key) % capacity;
     bool result = OK_TAB_IS_OCCUPIED(meta[idx]);
     if (result) --count;
     meta[idx] &= ~OK_TAB_META_OCCUPIED;
@@ -1599,7 +1565,7 @@ void HashSet<T>::put(const T& elem) {
         *this = new_set;
     }
 
-    U64 hash = Hash<T>::hash(elem);
+    U64 hash = ok_hash_value(elem);
 
     while (true) {
         if (OK_TAB_IS_FREE(meta[hash])) {
@@ -1620,7 +1586,7 @@ void HashSet<T>::put(const T& elem) {
 
 template <typename T>
 bool HashSet<T>::has(const T& elem) const {
-    U64 hash = Hash<T>::hash(elem);
+    U64 hash = ok_hash_value(elem);
     U64 idx = hash;
 
     do {
