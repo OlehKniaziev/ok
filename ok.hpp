@@ -1056,25 +1056,19 @@ struct Table {
     void put(const TKey& key, const TValue& value);
 
     // NOTE(oleh): Not sure if we need the `get_ref` methods.
-    // Also not sure if we shouldn't just keep the template overloads?
-    Optional<TValue> get(const TKey& key) const;
-
     template <typename K>
     Optional<TValue> get(const K& key) const;
-
-    Optional<TValue&> get_ref(const TKey& key);
-    Optional<const TValue&> get_ref(const TKey& key) const;
 
     template <typename K>
     Optional<TValue&> get_ref(const K& key);
     template <typename K>
     Optional<const TValue&> get_ref(const K& key) const;
 
-    bool has(const TKey& key) const;
     template <typename K>
     bool has(const K& key) const;
 
-    bool remove(const TKey&);
+    template <typename K>
+    bool remove(const K&);
 
     static constexpr UZ DEFAULT_CAPACITY = 47;
 
@@ -1395,22 +1389,6 @@ void Table<K, V>::put(const K& key, const V& value) {
     }
 }
 
-template <typename K, typename V>
-Optional<V> Table<K, V>::get(const K& key) const {
-    U64 idx = ok_hash_value(key) % capacity;
-    U64 initial_idx = idx;
-
-    do {
-        if (OK_TAB_IS_OCCUPIED(meta[idx]) && keys[idx] == key) {
-            return values[idx];
-        }
-
-        idx = (idx + 1) % capacity;
-    } while (idx != initial_idx);
-
-    return Optional<V>::empty();
-}
-
 template <typename TKey, typename TValue>
 template <typename K>
 Optional<TValue> Table<TKey, TValue>::get(const K& key) const {
@@ -1426,38 +1404,6 @@ Optional<TValue> Table<TKey, TValue>::get(const K& key) const {
     } while (idx != initial_idx);
 
     return Optional<TValue>::empty();
-}
-
-template <typename K, typename V>
-Optional<V&> Table<K, V>::get_ref(const K& key) {
-    U64 idx = ok_hash_value(key) % capacity;
-    U64 initial_idx = idx;
-
-    do {
-        if (OK_TAB_IS_OCCUPIED(meta[idx]) && keys[idx] == key) {
-            return values[idx];
-        }
-
-        idx = (idx + 1) % capacity;
-    } while (idx != initial_idx);
-
-    return Optional<V&>::empty();
-}
-
-template <typename K, typename V>
-Optional<const V&> Table<K, V>::get_ref(const K& key) const {
-    U64 idx = ok_hash_value(key) % capacity;
-    U64 initial_idx = idx;
-
-    do {
-        if (OK_TAB_IS_OCCUPIED(meta[idx]) && keys[idx] == key) {
-            return values[idx];
-        }
-
-        idx = (idx + 1) % capacity;
-    } while (idx != initial_idx);
-
-    return Optional<const V&>::empty();
 }
 
 template <typename TKey, typename TValue>
@@ -1494,22 +1440,6 @@ Optional<const TValue&> Table<TKey, TValue>::get_ref(const K& key) const {
     return Optional<const TValue&>::empty();
 }
 
-template <typename K, typename V>
-bool Table<K, V>::has(const K& key) const {
-    U64 idx = ok_hash_value(key) % capacity;
-    U64 initial_idx = idx;
-
-    do {
-        if (OK_TAB_IS_OCCUPIED(meta[idx]) && keys[idx] == key) {
-            return true;
-        }
-
-        idx = (idx + 1) % capacity;
-    } while (idx != initial_idx);
-
-    return false;
-}
-
 template <typename TKey, typename TValue>
 template <typename K>
 bool Table<TKey, TValue>::has(const K& key) const {
@@ -1527,9 +1457,9 @@ bool Table<TKey, TValue>::has(const K& key) const {
     return false;
 }
 
-// NOTE(oleh): Should we call destructors here?
 template <typename TKey, typename TValue>
-bool Table<TKey, TValue>::remove(const TKey& key) {
+template <typename K>
+bool Table<TKey, TValue>::remove(const K& key) {
     U64 idx = ok_hash_value(key) % capacity;
     bool result = OK_TAB_IS_OCCUPIED(meta[idx]);
     if (result) --count;
