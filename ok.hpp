@@ -1492,6 +1492,7 @@ void HashSet<T>::put(const T& elem) {
             new_set.put(values[i]);
         }
 
+        this->dealloc();
         *this = new_set;
     }
 
