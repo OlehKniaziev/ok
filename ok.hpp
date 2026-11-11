@@ -65,14 +65,21 @@
 
 #endif // OK_LOG
 
+#ifdef __GNUC__
+#    define OK_ATTRIBUTE_PRINTF(fmt, args) __attribute__((format(printf, fmt, args)))
+#    define OK_DEBUG_TRAP() __builtin_trap()
+#else
+#    define OK_ATTRIBUTE_PRINTF(fmt, args)
+#    define OK_DEBUG_TRAP() do { __debugbreak(); } while (true)
+#endif // __GNUC__
+
 #ifndef OK_STRIP_ASSERTIONS
 
 #ifndef OK_ASSERT
 #define OK_ASSERT(x) do { \
     if (!(x)) { \
         OK_LOG_ERROR("%s:%d: Assertion failed: %s\n", __FILE__, __LINE__, #x); \
-        /* @Portability */ \
-        __builtin_trap(); \
+        OK_DEBUG_TRAP();                                                \
     } \
 } while(0)
 #endif // OK_ASSERT
@@ -84,47 +91,40 @@
 #define OK_VERIFY(x) do { \
     if (!(x)) { \
         OK_LOG_ERROR("%s:%d: Verification failed: %s\n", __FILE__, __LINE__, #x); \
-        /* @Portability */ \
-        __builtin_trap(); \
+        OK_DEBUG_TRAP(); \
     } \
 } while(0)
 
 #define OK_TODO() do { \
     OK_LOG_ERROR("%s:%d: TODO: Not implemented\n", __FILE__, __LINE__); \
-        /* @Portability */ \
-    __builtin_trap(); \
+    OK_DEBUG_TRAP(); \
 } while (0)
 
 #define OK_TODO_MSG(msg) do { \
     OK_LOG_ERROR("%s:%d: TODO: " msg "\n", __FILE__, __LINE__); \
-        /* @Portability */ \
-    __builtin_trap(); \
+    OK_DEBUG_TRAP(); \
 } while (0)
 
 #define OK_TODO_MSG_FMT(fmt, ...) do { \
     OK_LOG_ERROR("%s:%d: TODO: " fmt "\n", __FILE__, __LINE__, __VA_ARGS__); \
-        /* @Portability */ \
-    __builtin_trap(); \
+    OK_DEBUG_TRAP(); \
 } while (0)
 
 #define OK_UNUSED(arg) (void)(arg)
 
 #define OK_UNREACHABLE() do { \
     OK_LOG_ERROR("%s:%d: Encountered unreachable code\n", __FILE__, __LINE__); \
-        /* @Portability */ \
-    __builtin_trap(); \
+    OK_DEBUG_TRAP(); \
 } while (0)
 
 #define OK_PANIC(msg) do { \
     OK_LOG_ERROR("%s:%d: PROGRAM PANICKED: %s\n", __FILE__, __LINE__, (msg)); \
-        /* @Portability */ \
-    __builtin_trap(); \
+    OK_DEBUG_TRAP(); \
 } while (0)
 
 #define OK_PANIC_FMT(fmt, ...) do { \
     OK_LOG_ERROR("%s:%d: PROGRAM PANICKED: " fmt "\n", __FILE__, __LINE__, __VA_ARGS__); \
-        /* @Portability */ \
-    __builtin_trap(); \
+    OK_DEBUG_TRAP(); \
 } while (0)
 
 #define OK_ARR_LEN(xs) (sizeof((xs)) / sizeof((xs)[0]))
@@ -215,12 +215,6 @@ using F64 = double;
 #else
 #error "Could not determine architecture bit size"
 #endif
-
-#ifdef __GNUC__
-#define OK_ATTRIBUTE_PRINTF(fmt, args) __attribute__((format(printf, fmt, args)))
-#else
-#define OK_ATTRIBUTE_PRINTF(fmt, args)
-#endif // __GNUC__
 
 namespace ok {
 #ifdef OK_NO_STDLIB
