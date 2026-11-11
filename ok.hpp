@@ -767,7 +767,7 @@ struct StringView : public StringBase<StringView, const char> {
 };
 
 inline namespace literals {
-constexpr StringView operator ""_sv(const char* cstr, unsigned long len) {
+constexpr StringView operator ""_sv(const char* cstr, UZ len) {
     return StringView{cstr, len};
 }
 };
@@ -2232,14 +2232,16 @@ Optional<File::WriteError> File::write(const U8* data, UZ count, UZ *n_written) 
     seek_start();
     SetEndOfFile(handle);
 
-    DWORD n_written = 0;
+    DWORD dw_n_written = 0;
     bool ok = WriteFile(handle,
                         data,
                         (DWORD)count,
-                        &n_written,
+                        &dw_n_written,
                         nullptr);
 
     if (!ok) return GetLastError();
+
+    *n_written = static_cast<UZ>(dw_n_written);
     return {};
 #else
     OK_TODO();
@@ -2566,7 +2568,7 @@ static bool _rand_seeded = false;
 
 void seed_rand(U64 seed) {
 #ifndef OK_NO_STDLIB
-    srand(seed);
+    srand(static_cast<U32>(seed));
 #else
     OK_TODO();
 #endif // OK_NO_STDLIB
@@ -2604,6 +2606,7 @@ Optional<File::OpenError> create_temp_file(File* file) {
 
     return File::open(file, file_path.cstr());
 #else
+    OK_UNUSED(file);
     OK_TODO();
 #endif // Platform check.
 }
