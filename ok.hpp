@@ -298,6 +298,13 @@ struct Allocator {
     }
 
     template <typename T>
+    inline T* alloc(const T& x) {
+        auto* ptr = alloc<T>();
+        *ptr = x;
+        return ptr;
+    }
+
+    template <typename T>
     inline void dealloc(T* ptr, UZ count) {
         return raw_dealloc((void*)ptr, count * sizeof(T));
     }
