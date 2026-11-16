@@ -1558,26 +1558,17 @@ struct File {
         DOES_NOT_EXIST,
     };
 
+#elif OK_WINDOWS
+    using IOError = DWORD;
+#else
+    struct IOError {};
+#endif // Platform check.
+
     using OpenError = IOError;
     using ReadError = IOError;
     using WriteError = IOError;
     using CloseError = IOError;
     using RemoveError = IOError;
-#elif OK_WINDOWS
-    using IOError = DWORD;
-    using OpenError = DWORD;
-    using ReadError = DWORD;
-    using WriteError = DWORD;
-    using CloseError = DWORD;
-    using RemoveError = DWORD;
-#else
-    struct IOError {};
-    struct OpenError {};
-    struct ReadError {};
-    struct WriteError {};
-    struct CloseError {};
-    struct RemoveError {};
-#endif // Platform check.
 
     static Optional<OpenError> open(File* out, const char* path);
     static Optional<OpenError> open(File* out, StringView path);
@@ -1638,6 +1629,25 @@ struct File {
 
     const char* path;
 };
+
+struct DirEntry {
+    String name;
+    bool is_dir;
+};
+
+Optional<File::IOError> read_directory(
+    Allocator *allocator,
+    StringView path,
+    Slice<DirEntry> *entries,
+    bool recursive = false
+);
+
+Optional<File::IOError> read_directory(
+    Allocator *allocator,
+    const char *path,
+    Slice<DirEntry> *entries,
+    bool recursive = false
+);
 
 // Procedures.
 // NOTE(oleh): These should accept format strings like `std::print`.
@@ -2274,6 +2284,116 @@ Optional<File::IOError> File::truncate(UZ size) {
 #endif // OK_UNIX
 }
 
+Optional<File::IOError> _read_directory_impl(
+    Allocator *allocator,
+    const char *path_cstr,
+    List<DirEntry> *out_entries,
+    bool recursive,
+    const char *prefix_cstr
+) {
+#if OK_WINDOWS
+    WIN32_FIND_DATAA dir_entry = {};
+
+    auto find_handle = FindFirstFileA(path_cstr, &dir_entry);
+
+    if (find_handle == INVALID_HANDLE_VALUE) {
+        return GetLastError();
+    }
+
+    do {
+        StringView file_name{dir_entry.cFileName};
+        if (file_name == "."_sv || file_name == ".."_sv) {
+            continue;
+        }
+
+        auto is_dir = (dir_entry.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+
+        if (!(is_dir && recursive)) {
+            const char *path_sep = "\\";
+            if (strlen(prefix_cstr) == 0) {
+                path_sep = "";
+            }
+
+            auto full_entry_name = String::format(allocator,
+                                                  "%s%s%s",
+                                                  prefix_cstr,
+                                                  path_sep,
+                                                  dir_entry.cFileName);
+
+            DirEntry entry = {
+                .name = full_entry_name,
+                .is_dir = is_dir,
+            };
+
+            out_entries->push(entry);
+
+            continue;
+        }
+
+        if (recursive) {
+            auto subdir_path = String::format(allocator, "%s\\" OK_SV_FMT, path_cstr, OK_SV_ARG(file_name));
+
+            auto res = _read_directory_impl(allocator, subdir_path.cstr(), out_entries, recursive, path_cstr);
+            if (res) return res;
+        }
+    } while (FindNextFile(find_handle, &dir_entry));
+
+    FindClose(find_handle);
+
+    auto err = GetLastError();
+    if (err != ERROR_NO_MORE_FILES) {
+        return err;
+    }
+
+    return {};
+#else
+    OK_UNUSED(allocator);
+    OK_UNUSED(path_cstr);
+    OK_UNUSED(out_entries);
+    OK_UNUSED(recursive);
+    OK_TODO();
+#endif // Platform check.
+}
+
+Optional<File::IOError> read_directory(
+    Allocator *allocator,
+    StringView path,
+    Slice<DirEntry> *out_entries,
+    bool recursive
+) {
+    auto path_s = path.to_string(allocator);
+
+#if OK_WINDOWS
+    // NOTE(oleh): The `FindFirstFile` WIN32 function always fails if the supplied path ends with
+    // a trailing backslash.
+    while (path.count > 0 && path[path.count - 1] == '\\') {
+        path.count -= 1;
+    }
+
+    path_s.push('\\');
+    path_s.push('*');
+#endif // OK_WINDOWS
+
+    auto path_cstr = path_s.cstr();
+
+    auto out_entries_list = List<DirEntry>::alloc(allocator);
+
+    auto res = _read_directory_impl(allocator, path_cstr, &out_entries_list, recursive, "");
+    if (res) return res;
+
+    *out_entries = out_entries_list.slice();
+
+    return {};
+}
+
+Optional<File::IOError> read_directory(
+    Allocator *allocator,
+    const char *path,
+    Slice<DirEntry> *out_entries,
+    bool recursive
+) {
+    return read_directory(allocator, StringView{path}, out_entries, recursive);
+}
 // SUBPROCESS API IMPLEMENTATION
 Optional<Command::ExecError> Command::exec() {
 #if OK_UNIX
