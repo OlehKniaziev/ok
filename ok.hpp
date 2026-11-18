@@ -1570,8 +1570,16 @@ struct File {
     using CloseError = IOError;
     using RemoveError = IOError;
 
-    static Optional<OpenError> open(File* out, const char* path);
-    static Optional<OpenError> open(File* out, StringView path);
+    using OpenFlags = U8;
+
+    enum : OpenFlags {
+        OF_EXISTING = 1 << 0,
+        OF_TRUNCATE = 1 << 1,
+        OF_READONLY = 1 << 2,
+    };
+
+    static Optional<OpenError> open(File* out, const char* path, OpenFlags flags = 0);
+    static Optional<OpenError> open(File* out, StringView path, OpenFlags flags = 0);
 
     static bool exists(const char* path);
     static bool exists(StringView path);
@@ -1949,10 +1957,20 @@ String StringView::to_string(Allocator* a) const {
 }
 
 // FILESYSTEM API IMPLEMENTATION
-Optional<File::OpenError> File::open(File* out, const char* path) {
+Optional<File::OpenError> File::open(File* out, const char* path, OpenFlags flags) {
 #if OK_UNIX
-    int fd = ::open(path, O_RDWR | O_CREAT, 0666);
-    int error = errno;
+    int open_flags = O_RDWR;
+    if (flags & File::OF_READONLY) {
+        open_flags = O_RDONLY;
+    }
+    if (!(flags & File::OF_EXISTING)) {
+        open_flags |= O_CREAT;
+    }
+    if (flags & File::OF_TRUNCATE) {
+        open_flags |= O_TRUNC;
+    }
+
+    int fd = ::open(path, open_flags, 0666);
 
     if (fd < 0) {
         switch (error) {
@@ -1982,17 +2000,29 @@ Optional<File::OpenError> File::open(File* out, const char* path) {
     // NOTE: Possible CreateFileA errors
     //   ERROR_SHARING_VIOLATION
 
-    constexpr DWORD FILE_SHARE_MODE = 0;
-    constexpr LPSECURITY_ATTRIBUTES SECURITY_ATTRIBUTES = nullptr;
-    constexpr HANDLE TEMPLATE_FILE = nullptr;
+    DWORD access_rights = GENERIC_READ | GENERIC_WRITE;
+    DWORD creation_disposition = OPEN_ALWAYS;
+    if (flags & File::OF_READONLY) {
+        access_rights = GENERIC_READ;
+    }
+    if (flags & File::OF_TRUNCATE) {
+        creation_disposition = CREATE_ALWAYS;
+    }
+    if (flags & File::OF_EXISTING) {
+        creation_disposition = OPEN_EXISTING;
+    }
+
+    constexpr DWORD file_share_mode = 0;
+    constexpr LPSECURITY_ATTRIBUTES security_attributes = nullptr;
+    constexpr HANDLE template_file = nullptr;
 
     HANDLE file_handle = CreateFileA(path,
-                                     GENERIC_READ | GENERIC_WRITE,
-                                     FILE_SHARE_MODE,
-                                     SECURITY_ATTRIBUTES,
-                                     OPEN_ALWAYS,
+                                     access_rights,
+                                     file_share_mode,
+                                     security_attributes,
+                                     creation_disposition,
                                      FILE_ATTRIBUTE_NORMAL,
-                                     TEMPLATE_FILE);
+                                     template_file);
 
     if (file_handle == INVALID_HANDLE_VALUE) {
         DWORD file_open_error = GetLastError();
@@ -2007,12 +2037,12 @@ Optional<File::OpenError> File::open(File* out, const char* path) {
 #endif // OK_UNIX
 }
 
-Optional<File::OpenError> File::open(File* out, StringView path) {
+Optional<File::OpenError> File::open(File* out, StringView path, File::OpenFlags flags) {
     // FIXME: Temporary allocation in potentially multi-threaded context.
     char* path_cstr = temp_allocator()->alloc<char>(path.count + 1);
     memcpy(path_cstr, path.data, path.count);
     path_cstr[path.count] = '\0';
-    return File::open(out, path_cstr);
+    return File::open(out, path_cstr, flags);
 }
 
 bool File::exists(const char* path) {
